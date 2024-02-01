@@ -19,7 +19,7 @@ import {
   User,
 } from "https://deno.land/x/grammy_types@v3.3.0/mod.ts";
 import fs from "node:fs";
-import { Telegraf, Telegram, TelegramError } from "npm:telegraf";
+import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { File } from "https://deno.land/x/grammy_types@v3.3.0/manage.ts";
@@ -67,16 +67,13 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
   let finished = false;
   const update = async (frame: number): Promise<void> => {
     if (finished) return;
-    if (messageId) {
-      await tgm
-        .editMessageText(
-          uid,
-          messageId,
-          undefined,
-          `${text} ${spinnerMessages[frame]}`,
-        )
-        .catch(() => {});
-    }
+    await tgm
+      .editMessageText(
+        uid,
+        messageId,
+        undefined,
+        `${text} ${spinnerMessages[frame]}`,
+      );
     await sleep(500);
     return update((frame + 1) % spinnerMessages.length);
   };
@@ -98,16 +95,31 @@ const messageOptions = {
   parse_mode: "HTML" as ParseMode,
 };
 
-export const sendMessage = (tgm: Telegram, userId: number) =>
-  retry(1000, 2, async (txt: string) => {
-    console.log(txt);
-    try {
-      return await tgm.sendMessage(userId, txt, messageOptions);
-    } catch (error) {
-      if ((error as TelegramError).code === 403) return;
-      throw error;
-    }
-  });
+const tokenToTelegramURL = (token: string) =>
+  `https://api.telegram.org/bot${token}/`;
+
+export const sendTelegramMessage = (token: string) =>
+  pipe(
+    retry(2, 500, (chat_id: number, text: string) =>
+      fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+        method: "POST",
+        headers: { "Content-type": "application/json" },
+        body: JSON.stringify({ chat_id, text, ...messageOptions }),
+      }).then((r) =>
+        r.json()
+      )),
+    ({ ok, error_code, description }) => {
+      if (error_code === 403) {
+        return;
+      }
+      if (!ok) {
+        throw new Error(`Telegram error: ${error_code} ${description}`);
+      }
+    },
+  );
+
+export const setTelegramWebhook = (token: string, url: string) =>
+  fetch(tokenToTelegramURL(token) + `setWebhook?url=${url}`);
 
 const fileIdToContentBase64 =
   (token: string) => async (fileId: string): Promise<string> => {
@@ -199,13 +211,19 @@ export const makeTelegramHandler = (
             logAdmin,
             fileLimitMB: () => 50,
             sendFile: juxt(logAdminVideoIfNeeded, sendFile(tgm, from.id)),
-            logText: juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
+            logText: juxt(
+              (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
+              logAdminIfNeeded,
+            ),
             makeProgressBar: telegramProgressBar(tgm, from.id),
             spinner: makeSpinner(tgm, from.id),
             logURL: pipe(
               (text: string, url: string, urlText: string) =>
                 `${text}\n\n<a href="${url}">${urlText}</a>`,
-              juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
+              juxt(
+                (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
+                logAdminIfNeeded,
+              ),
             ),
           }),
         ),
