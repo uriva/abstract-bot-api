@@ -1,13 +1,29 @@
-import { juxt, letIn, pipe, retry, sleep, throttle, withContext } from "gamla";
 import {
+  coerce,
+  juxt,
+  letIn,
+  max,
+  pipe,
+  prop,
+  retry,
+  sleep,
+  throttle,
+  withContext,
+} from "gamla";
+import {
+  Contact,
+  Message,
   ParseMode,
+  PhotoSize,
   Update,
   User,
 } from "https://deno.land/x/grammy_types@v3.3.0/mod.ts";
 import fs from "node:fs";
 import { Telegraf, Telegram, TelegramError } from "npm:telegraf";
 
+import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { Context, TaskHandler } from "./api.ts";
+import { AbstractIncomingMessage } from "./index.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
   retry(
@@ -92,6 +108,68 @@ export const sendMessage = (tgm: Telegram, userId: number) =>
     }
   });
 
+const fileIdToContentBase64 =
+  (token: string) => async (fileId: string): Promise<string> => {
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
+    );
+    if (!response.ok) throw new Error("could not fetch photo url");
+    const imageResponse = await fetch(
+      `https://api.telegram.org/file/bot${token}/${
+        (
+          await response.json()
+        ).result.file_path
+      }`,
+    );
+    if (!imageResponse.ok) throw new Error("could not fetch photo");
+    return encodeBase64(await imageResponse.arrayBuffer());
+  };
+
+const image = (token: string) =>
+  pipe(
+    ({ photo }: Message) => photo || [],
+    max(prop<PhotoSize>()("width")),
+    prop<PhotoSize>()("file_id"),
+    fileIdToContentBase64(token),
+  );
+
+const sharedOwnPhone = (ownId: number, { user_id, phone_number }: Contact) =>
+  (user_id === ownId) ? phone_number : undefined;
+
+const contactToFullName = ({ first_name, last_name }: Contact) =>
+  first_name + (last_name ? " " + last_name : "");
+
+export const getBestPhoneFromContactShared = ({
+  phone_number,
+  vcard,
+}: Contact) => {
+  if (!vcard) return phone_number;
+  const lines = vcard.split("\n");
+  const preferredCellphone = lines.find(
+    (x) => x.startsWith("TEL;CELL;PREF") || x.startsWith("TEL;MOBILE;PREF"),
+  );
+  if (preferredCellphone) return preferredCellphone.split(":")[1];
+  const anyCellphone = lines.find(
+    (x) => x.startsWith("TEL;CELL") || x.startsWith("TEL;MOBILE"),
+  );
+  if (anyCellphone) return anyCellphone.split(":")[1];
+  return phone_number;
+};
+
+const abstractMessage = (token: string) =>
+async (
+  msg: Message,
+): Promise<AbstractIncomingMessage> => ({
+  text: msg.text,
+  contact: msg.contact && {
+    name: contactToFullName(msg.contact),
+    phone: getBestPhoneFromContactShared(msg.contact),
+  },
+  image: await image(token)(msg),
+  caption: msg.caption,
+  ownPhone: msg.contact && sharedOwnPhone(coerce(msg.from?.id), msg.contact),
+});
+
 export const makeTelegramHandler = (
   telegramToken: string,
   doTask: TaskHandler,
@@ -101,34 +179,37 @@ export const makeTelegramHandler = (
 ) =>
 ({ message }: Update) =>
   message?.from && message.text
-    ? withContext(
-      letIn(
-        {
-          from: message.from,
-          tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
-            .telegram,
-          logAdminIfNeeded: (msg: string) =>
-            isAdmin(message.from)
-              ? Promise.resolve()
-              : logAdmin(adminSpyMessage(message.from, msg)),
-          logAdminVideoIfNeeded: (path: string) =>
-            isAdmin(message.from) ? Promise.resolve() : logAdminVideo(path),
-        },
-        ({ from, tgm, logAdminIfNeeded, logAdminVideoIfNeeded }) => ({
-          userId: () => message.from.id.toString(),
-          logAdmin,
-          fileLimitMB: () => 50,
-          sendFile: juxt(logAdminVideoIfNeeded, sendFile(tgm, from.id)),
-          logText: juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
-          makeProgressBar: telegramProgressBar(tgm, from.id),
-          spinner: makeSpinner(tgm, from.id),
-          logURL: pipe(
-            (text: string, url: string, urlText: string) =>
-              `${text}\n\n<a href="${url}">${urlText}</a>`,
-            juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
-          ),
-        }),
+    ? pipe(
+      abstractMessage(telegramToken),
+      withContext(
+        letIn(
+          {
+            from: message.from,
+            tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
+              .telegram,
+            logAdminIfNeeded: (msg: string) =>
+              isAdmin(message.from)
+                ? Promise.resolve()
+                : logAdmin(adminSpyMessage(message.from, msg)),
+            logAdminVideoIfNeeded: (path: string) =>
+              isAdmin(message.from) ? Promise.resolve() : logAdminVideo(path),
+          },
+          ({ from, tgm, logAdminIfNeeded, logAdminVideoIfNeeded }) => ({
+            userId: () => message.from.id.toString(),
+            logAdmin,
+            fileLimitMB: () => 50,
+            sendFile: juxt(logAdminVideoIfNeeded, sendFile(tgm, from.id)),
+            logText: juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
+            makeProgressBar: telegramProgressBar(tgm, from.id),
+            spinner: makeSpinner(tgm, from.id),
+            logURL: pipe(
+              (text: string, url: string, urlText: string) =>
+                `${text}\n\n<a href="${url}">${urlText}</a>`,
+              juxt(sendMessage(tgm, from.id), logAdminIfNeeded),
+            ),
+          }),
+        ),
+        doTask,
       ),
-      doTask,
-    )({ text: message.text })
+    )(message)
     : Promise.resolve();

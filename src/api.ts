@@ -63,7 +63,13 @@ async (...xs: Parameters<F>) => {
   }
 };
 
-export type AbstractIncomingMessage = { text: string };
+export type AbstractIncomingMessage = {
+  text?: string;
+  contact?: { phone: string; name: string };
+  image?: string;
+  caption?: string;
+  ownPhone?: string;
+};
 
 export type TaskHandler =
   // deno-lint-ignore no-explicit-any
