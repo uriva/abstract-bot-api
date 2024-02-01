@@ -12,6 +12,7 @@ import {
 } from "gamla";
 import {
   Contact,
+  InputMessageContent,
   Message,
   ParseMode,
   PhotoSize,
@@ -24,6 +25,7 @@ import { Telegraf, Telegram, TelegramError } from "npm:telegraf";
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { Context, TaskHandler } from "./api.ts";
 import { AbstractIncomingMessage } from "./index.ts";
+import { File } from "https://deno.land/x/grammy_types@v3.3.0/manage.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
   retry(
@@ -114,12 +116,9 @@ const fileIdToContentBase64 =
       `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
     );
     if (!response.ok) throw new Error("could not fetch photo url");
+    const obj: { result: File } = await response.json();
     const imageResponse = await fetch(
-      `https://api.telegram.org/file/bot${token}/${
-        (
-          await response.json()
-        ).result.file_path
-      }`,
+      `https://api.telegram.org/file/bot${token}/${obj.result.file_path}`,
     );
     if (!imageResponse.ok) throw new Error("could not fetch photo");
     return encodeBase64(await imageResponse.arrayBuffer());
