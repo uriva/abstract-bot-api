@@ -73,7 +73,8 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
         messageId,
         undefined,
         `${text} ${spinnerMessages[frame]}`,
-      );
+        // It may throw an error about the old text being the same as the new, this is not interesting and in general this update doesn't have to succeed.
+      ).catch(() => {});
     await sleep(500);
     return update((frame + 1) % spinnerMessages.length);
   };
