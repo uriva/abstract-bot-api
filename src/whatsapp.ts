@@ -80,7 +80,7 @@ const whatsappCommunications = (
         logAdmin,
       ),
       makeProgressBar: () => () => {},
-      spinner: () => () => {},
+      spinner: () => Promise.resolve(() => Promise.resolve()),
       logURL: (text: string, url: string, urlText: string) =>
         map(
           juxt(

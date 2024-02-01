@@ -43,16 +43,13 @@ const telegramProgressBar = (tgm: Telegram, uid: number) => (text: string) => {
 
 const spinnerMessages = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-const makeSpinner = (tgm: Telegram, uid: number) => (text: string) => {
-  let messageId: number | null = null;
-  tgm
+const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
+  const messageId = await tgm
     .sendMessage(uid, `${text} ${spinnerMessages[0]}`)
-    .then(({ message_id }) => {
-      messageId = message_id;
-    });
-  let breakLoop = false;
+    .then(({ message_id }) => message_id);
+  let finished = false;
   const update = async (frame: number): Promise<void> => {
-    if (breakLoop) return;
+    if (finished) return;
     if (messageId) {
       await tgm
         .editMessageText(
@@ -66,14 +63,11 @@ const makeSpinner = (tgm: Telegram, uid: number) => (text: string) => {
     await sleep(500);
     return update((frame + 1) % spinnerMessages.length);
   };
-  const finalPromise = update(0);
-  return () => {
-    breakLoop = true;
-    finalPromise.then(() => {
-      if (messageId) {
-        tgm.editMessageText(uid, messageId, undefined, `${text} done.`);
-      }
-    });
+  const spinning = update(0);
+  return async () => {
+    finished = true;
+    await spinning;
+    return tgm.editMessageText(uid, messageId, undefined, `${text} done.`);
   };
 };
 

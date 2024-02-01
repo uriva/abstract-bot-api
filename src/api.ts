@@ -22,7 +22,7 @@ const defaultContext = {
   },
   spinner: (text: string) => {
     console.log(text);
-    return () => {};
+    return Promise.resolve(() => Promise.resolve());
   },
   // deno-lint-ignore no-explicit-any
   logURL: (text: string, url: string, urlText: string): Promise<any> => {
@@ -52,13 +52,13 @@ export const withSpinner = <
 ): F =>
 // @ts-expect-error ts cannot infer
 async (...xs: Parameters<F>) => {
-  const stopSpinning = fromContext("spinner")(text);
+  const stopSpinning = await fromContext("spinner")(text);
   try {
     const result = await f(...xs);
-    stopSpinning();
+    await stopSpinning();
     return result;
   } catch (e) {
-    stopSpinning();
+    await stopSpinning();
     throw e;
   }
 };

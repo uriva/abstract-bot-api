@@ -38,10 +38,10 @@ const webCommunications = (
     const key = Date.now();
     send({ key, text, spinner: true });
     logAdmin(text);
-    return () => {
+    return Promise.resolve(() => {
       logAdmin(text + " Done");
-      send({ key, text, spinner: false });
-    };
+      return send({ key, text, spinner: false });
+    });
   },
   logText: (text: string) => Promise.all([logAdmin(text), send({ text })]),
   sendFile: juxt(
