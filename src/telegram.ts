@@ -115,9 +115,11 @@ const fileIdToContentBase64 =
       `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
     );
     if (!response.ok) throw new Error("could not fetch photo url");
-    const obj: { result: File } = await response.json();
+    const { result: { file_path } } = (await response.json()) as {
+      result: File;
+    };
     const imageResponse = await fetch(
-      `https://api.telegram.org/file/bot${token}/${obj.result.file_path}`,
+      `https://api.telegram.org/file/bot${token}/${file_path}`,
     );
     if (!imageResponse.ok) throw new Error("could not fetch photo");
     return encodeBase64(await imageResponse.arrayBuffer());
