@@ -5,31 +5,27 @@ import {
   setTelegramWebhook,
 } from "../src/index.ts";
 
-import { coerce } from "gamla";
-
 import { User } from "https://deno.land/x/grammy_types@v3.3.0/mod.ts";
 import { logInContext } from "../src/api.ts";
 
 const url = "<url here>";
-const telegramToken = "<telegram token here>";
-const botServerSuffix = "<bot server suffix>";
-
-const taskHandler = (task: AbstractIncomingMessage) => {
-  console.log("got task", task);
-  return logInContext("hi there");
-};
+const telegramToken = "<token here>";
+const botServerSuffix = "/my-suffix>";
 
 await bouncerServer(
   url,
-  coerce(Deno.env.get("PORT")),
+  "<port>",
   {
     [botServerSuffix]: makeTelegramHandler(
       telegramToken,
-      taskHandler,
+      (task: AbstractIncomingMessage) => {
+        console.log("got task", task);
+        return logInContext("hi there");
+      },
       (t: string) => Promise.resolve(console.log(t)),
       () => Promise.resolve(),
       (_: User) => false,
     ),
   },
 );
-await setTelegramWebhook(telegramToken, `${url}/${botServerSuffix}`);
+await setTelegramWebhook(telegramToken, url + botServerSuffix);

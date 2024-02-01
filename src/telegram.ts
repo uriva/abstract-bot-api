@@ -139,7 +139,6 @@ const fileIdToContentBase64 =
 
 const image = (token: string) =>
   pipe(
-    ({ photo }: Message) => photo || [],
     max(prop<PhotoSize>()("width")),
     prop<PhotoSize>()("file_id"),
     fileIdToContentBase64(token),
@@ -177,7 +176,7 @@ async (
     name: contactToFullName(msg.contact),
     phone: getBestPhoneFromContactShared(msg.contact),
   },
-  image: await image(token)(msg),
+  image: msg.photo && await image(token)(msg.photo),
   caption: msg.caption,
   ownPhone: msg.contact && sharedOwnPhone(coerce(msg.from?.id), msg.contact),
 });
