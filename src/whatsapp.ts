@@ -1,4 +1,5 @@
 import { letIn, map, withContext } from "gamla";
+// @ts-expect-error no typing
 import whatsAppClient from "npm:@green-api/whatsapp-api-client";
 
 import { TaskHandler } from "./api.ts";
