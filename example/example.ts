@@ -5,7 +5,7 @@ import {
   setTelegramWebhook,
 } from "../src/index.ts";
 
-import { User } from "https://deno.land/x/grammy_types@v3.3.0/mod.ts";
+import { User } from "grammy_types";
 import { logInContext } from "../src/api.ts";
 
 const url = "<url here>";

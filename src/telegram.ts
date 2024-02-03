@@ -12,17 +12,17 @@ import {
 } from "gamla";
 import {
   Contact,
+  File,
   Message,
   ParseMode,
   PhotoSize,
   Update,
   User,
-} from "https://deno.land/x/grammy_types@v3.3.0/mod.ts";
+} from "grammy_types";
 import fs from "node:fs";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { File } from "https://deno.land/x/grammy_types@v3.3.0/manage.ts";
 import { Context, TaskHandler } from "./api.ts";
 import { AbstractIncomingMessage } from "./index.ts";
 

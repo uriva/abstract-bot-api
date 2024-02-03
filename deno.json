@@ -2,5 +2,8 @@
   "tasks": {
     "build": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run build_npm.ts"
   },
-  "imports": { "gamla": "https://deno.land/x/gamla@51.0.0/src/index.ts" }
+  "imports": {
+    "gamla": "https://deno.land/x/gamla@52.0.0/src/index.ts",
+    "grammy_types": "https://deno.land/x/grammy_types@v3.3.0/mod.ts"
+  }
 }
