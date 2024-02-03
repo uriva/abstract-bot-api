@@ -27,9 +27,9 @@ const webCommunications = (
   userId: () => userId,
   makeProgressBar: (text: string) => {
     const key = Date.now();
-    return (percentage: number) => {
+    return Promise.resolve((percentage: number) => {
       send({ key, text, percentage });
-    };
+    });
   },
   spinner: async (text: string) => {
     const key = Date.now();
