@@ -15,6 +15,7 @@ const defaultContext = {
   makeProgressBar: (text: string) =>
     Promise.resolve((percentage: number) => {
       console.log(text, (percentage * 100).toFixed());
+      return Promise.resolve();
     }),
   spinner: (text: string) => {
     console.log(text);
