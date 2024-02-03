@@ -42,21 +42,18 @@ const progressMessage =
     return `${text} [${progressBar}] ${Math.round(progress * 100)}%`;
   };
 
-const telegramProgressBar = (tgm: Telegram, uid: number) => (text: string) => {
-  const bar = progressMessage(text, 20);
-  let lastValue = 0;
-  let msgId: number | null = null;
-  tgm.sendMessage(uid, bar(lastValue)).then(({ message_id }) => {
-    msgId = message_id;
-  });
-  return throttle(1, (progress: number) => {
-    if (bar(progress) === bar(lastValue) || !msgId) return Promise.resolve();
-    lastValue = progress;
-    return tgm
-      .editMessageText(uid, msgId, undefined, bar(progress))
-      .catch(() => {});
-  });
-};
+const telegramProgressBar =
+  (tgm: Telegram, uid: number) => async (text: string) => {
+    const bar = progressMessage(text, 20);
+    let lastValue = 0;
+    const { message_id } = await tgm.sendMessage(uid, bar(lastValue));
+    return throttle(1, (progress: number) => {
+      if (bar(progress) === bar(lastValue)) return Promise.resolve();
+      lastValue = progress;
+      return tgm
+        .editMessageText(uid, message_id, undefined, bar(progress));
+    });
+  };
 
 const spinnerMessages = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -186,7 +183,7 @@ export const makeTelegramHandler = (
   telegramToken: string,
   doTask: TaskHandler,
   logAdmin: Context["logAdmin"],
-  logAdminVideo: Context["sendFile"],
+  sendFileAdmin: Context["sendFile"],
   isAdmin: (user: User) => boolean,
 ) =>
 ({ message }: Update) =>
@@ -204,7 +201,7 @@ export const makeTelegramHandler = (
                 ? Promise.resolve()
                 : logAdmin(adminSpyMessage(message.from, msg)),
             logAdminVideoIfNeeded: (path: string) =>
-              isAdmin(message.from) ? Promise.resolve() : logAdminVideo(path),
+              isAdmin(message.from) ? Promise.resolve() : sendFileAdmin(path),
           },
           ({ from, tgm, logAdminIfNeeded, logAdminVideoIfNeeded }) => ({
             userId: () => message.from.id.toString(),

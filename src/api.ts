@@ -17,9 +17,10 @@ const defaultContext = {
     console.log(msg);
     return Promise.resolve();
   },
-  makeProgressBar: (text: string) => (percentage: number) => {
-    console.log(text, (percentage * 100).toFixed());
-  },
+  makeProgressBar: (text: string) =>
+    Promise.resolve((percentage: number) => {
+      console.log(text, (percentage * 100).toFixed());
+    }),
   spinner: (text: string) => {
     console.log(text);
     return Promise.resolve(() => Promise.resolve());

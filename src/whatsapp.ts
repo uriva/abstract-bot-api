@@ -79,7 +79,7 @@ const whatsappCommunications = (
         (txt: string) => api.message.sendMessage(userId, null, txt),
         logAdmin,
       ),
-      makeProgressBar: () => () => {},
+      makeProgressBar: () => Promise.resolve(() => {}),
       spinner: () => Promise.resolve(() => Promise.resolve()),
       logURL: (text: string, url: string, urlText: string) =>
         map(

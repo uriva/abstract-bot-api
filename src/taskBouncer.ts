@@ -34,7 +34,9 @@ const bouncer =
     if (req.method === "POST") {
       getJson<BouncedTask["payload"]>(req).then((payload) => {
         // Don't await on this, so telegram won't retry when task takes a long time to finish.
-        addTask(domain, { url: req.url, payload } as BouncedTask);
+        addTask(domain, { url: req.url, payload } as BouncedTask).catch((e) => {
+          console.error("error submitting task", e);
+        });
         return success(res);
       });
       return;
