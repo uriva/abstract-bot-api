@@ -1,8 +1,7 @@
-// @ts-expect-error no typing
+import { letIn, map, withContext } from "gamla";
 import whatsAppClient from "npm:@green-api/whatsapp-api-client";
-import { juxt, letIn, map, withContext } from "gamla";
 
-import { Context, TaskHandler } from "./api.ts";
+import { TaskHandler } from "./api.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
 
@@ -54,39 +53,25 @@ export const registerWebhook = (
 
 const whatsappCommunications = (
   credentials: GreenCredentials,
-  sendFileToAdmin: Context["sendFile"],
-  logAdmin: Context["logAdmin"],
   uploadToCloudStorage: StoreOnCloud,
 ) =>
   letIn(
     whatsAppClient.restAPI(credentials),
-    (api) => (userId: string): Context => ({
+    (api) => (userId: string) => ({
       fileLimitMB: () => 50,
       userId: () => userId,
-      logAdmin,
       sendFile: async (file: string) =>
-        Promise.all([
-          sendFileToAdmin(file),
-          api.file.sendFileByUrl(
-            userId,
-            null,
-            await uploadToCloudStorage(file),
-            "video.mp4",
-            "",
-          ),
-        ]),
-      logText: juxt(
-        (txt: string) => api.message.sendMessage(userId, null, txt),
-        logAdmin,
-      ),
-      makeProgressBar: () => Promise.resolve(() => {}),
-      spinner: () => Promise.resolve(() => Promise.resolve()),
+        api.file.sendFileByUrl(
+          userId,
+          null,
+          await uploadToCloudStorage(file),
+          "video.mp4",
+          "",
+        ),
+      logText: (txt: string) => api.message.sendMessage(userId, null, txt),
       logURL: (text: string, url: string, urlText: string) =>
         map(
-          juxt(
-            (txt: string) => api.message.sendMessage(userId, null, txt),
-            logAdmin,
-          ),
+          (txt: string) => api.message.sendMessage(userId, null, txt),
         )([text, `${urlText}: ${url}`]),
     }),
   );
@@ -96,16 +81,12 @@ type StoreOnCloud = (path: string) => Promise<string>;
 export const whatsappHandler = (
   greenCredentials: GreenCredentials,
   doTask: TaskHandler,
-  logAdmin: Context["logAdmin"],
-  logAdminVideo: Context["sendFile"],
   uploadToCloudStorage: StoreOnCloud,
 ) =>
 (msg: WhatsappMessage) =>
   withContext(
     whatsappCommunications(
       greenCredentials,
-      logAdminVideo,
-      (x: string) => logAdmin(`${senderFromWhatsappMessage(msg)}: ${x}`),
       uploadToCloudStorage,
     )(senderFromWhatsappMessage(msg)),
     doTask,

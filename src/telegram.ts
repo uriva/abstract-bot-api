@@ -1,6 +1,5 @@
 import {
   coerce,
-  juxt,
   letIn,
   max,
   pipe,
@@ -17,13 +16,12 @@ import {
   ParseMode,
   PhotoSize,
   Update,
-  User,
 } from "grammy_types";
 import fs from "node:fs";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { Context, TaskHandler } from "./api.ts";
+import { TaskHandler } from "./api.ts";
 import { AbstractIncomingMessage } from "./index.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
@@ -83,16 +81,6 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
   };
 };
 
-const adminSpyMessage = (
-  { id, username, first_name, last_name }: User,
-  msg: string,
-) => `${id} ${username} ${first_name} ${last_name}: ${msg}`;
-
-const messageOptions = {
-  disable_web_page_preview: true,
-  parse_mode: "HTML" as ParseMode,
-};
-
 const tokenToTelegramURL = (token: string) =>
   `https://api.telegram.org/bot${token}/`;
 
@@ -102,7 +90,12 @@ export const sendTelegramMessage = (token: string) =>
       fetch(`${tokenToTelegramURL(token)}sendMessage`, {
         method: "POST",
         headers: { "Content-type": "application/json" },
-        body: JSON.stringify({ chat_id, text, ...messageOptions }),
+        body: JSON.stringify({
+          chat_id,
+          text,
+          disable_web_page_preview: true,
+          parse_mode: "HTML" as ParseMode,
+        }),
       }).then((r) =>
         r.json()
       )),
@@ -179,52 +172,34 @@ async (
   ownPhone: msg.contact && sharedOwnPhone(coerce(msg.from?.id), msg.contact),
 });
 
-export const makeTelegramHandler = (
-  telegramToken: string,
-  doTask: TaskHandler,
-  logAdmin: Context["logAdmin"],
-  sendFileAdmin: Context["sendFile"],
-  isAdmin: (user: User) => boolean,
-) =>
-({ message }: Update) =>
-  message?.from && message.text
-    ? pipe(
-      abstractMessage(telegramToken),
-      withContext(
-        letIn(
-          {
-            from: message.from,
-            tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
-              .telegram,
-            logAdminIfNeeded: (msg: string) =>
-              isAdmin(message.from)
-                ? Promise.resolve()
-                : logAdmin(adminSpyMessage(message.from, msg)),
-            logAdminVideoIfNeeded: (path: string) =>
-              isAdmin(message.from) ? Promise.resolve() : sendFileAdmin(path),
-          },
-          ({ from, tgm, logAdminIfNeeded, logAdminVideoIfNeeded }) => ({
-            userId: () => message.from.id.toString(),
-            logAdmin,
-            fileLimitMB: () => 50,
-            sendFile: juxt(logAdminVideoIfNeeded, sendFile(tgm, from.id)),
-            logText: juxt(
-              (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
-              logAdminIfNeeded,
-            ),
-            makeProgressBar: telegramProgressBar(tgm, from.id),
-            spinner: makeSpinner(tgm, from.id),
-            logURL: pipe(
-              (text: string, url: string, urlText: string) =>
-                `${text}\n\n<a href="${url}">${urlText}</a>`,
-              juxt(
+export const makeTelegramHandler =
+  (telegramToken: string, doTask: TaskHandler) => ({ message }: Update) =>
+    message?.from && message.text
+      ? pipe(
+        abstractMessage(telegramToken),
+        withContext(
+          letIn(
+            {
+              from: message.from,
+              tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
+                .telegram,
+            },
+            ({ from, tgm }) => ({
+              userId: () => message.from.id.toString(),
+              fileLimitMB: () => 50,
+              sendFile: sendFile(tgm, from.id),
+              logText: (t: string) =>
+                sendTelegramMessage(telegramToken)(from.id, t),
+              makeProgressBar: telegramProgressBar(tgm, from.id),
+              spinner: makeSpinner(tgm, from.id),
+              logURL: pipe(
+                (text: string, url: string, urlText: string) =>
+                  `${text}\n\n<a href="${url}">${urlText}</a>`,
                 (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
-                logAdminIfNeeded,
               ),
-            ),
-          }),
+            }),
+          ),
+          doTask,
         ),
-        doTask,
-      ),
-    )(message)
-    : Promise.resolve();
+      )(message)
+      : Promise.resolve();

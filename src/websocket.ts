@@ -1,16 +1,8 @@
-import {
-  complement,
-  equals,
-  juxt,
-  nonempty,
-  pipe,
-  withContext,
-  wrapObject,
-} from "gamla";
+import { complement, equals, nonempty, pipe, withContext } from "gamla";
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "npm:ws";
 
-import { Context, TaskHandler, UniqueUserId } from "./api.ts";
+import { TaskHandler, UniqueUserId } from "./api.ts";
 
 type SocketMessage = {
   key?: number;
@@ -28,15 +20,12 @@ type Manager = {
 
 const webCommunications = (
   send: (x: SocketMessage) => Promise<void>,
-  sendFileAdmin: Context["sendFile"],
-  logAdmin: Context["logAdmin"],
   userId: string,
   uploadToCloudStorage: (path: string) => Promise<string>,
-): Context => ({
+) => ({
   fileLimitMB: () => Infinity,
   userId: () => userId,
-  makeProgressBar: async (text: string) => {
-    await logAdmin(text);
+  makeProgressBar: (text: string) => {
     const key = Date.now();
     return (percentage: number) => {
       send({ key, text, percentage });
@@ -44,24 +33,13 @@ const webCommunications = (
   },
   spinner: async (text: string) => {
     const key = Date.now();
-    await Promise.all([send({ key, text, spinner: true }), logAdmin(text)]);
-    return (() =>
-      Promise.all([
-        logAdmin(text + " Done"),
-        send({ key, text, spinner: false }),
-      ]).then(() => {}));
+    await send({ key, text, spinner: true });
+    return () => send({ key, text, spinner: false });
   },
-  logText: juxt(logAdmin, pipe((text: string) => ({ text }), send)),
-  sendFile: juxt(
-    sendFileAdmin,
-    pipe(uploadToCloudStorage, (url: string) => ({ url }), send),
-  ),
-  logAdmin,
+  logText: pipe((text: string) => ({ text }), send),
+  sendFile: pipe(uploadToCloudStorage, (url: string) => ({ url }), send),
   logURL: (text: string, url: string, urlText: string) =>
-    Promise.all([
-      logAdmin(`${text}\n<a href="${url}">${urlText}</a>}`),
-      send({ text, url, urlText }),
-    ]),
+    send({ text, url, urlText }),
 });
 
 const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
@@ -117,8 +95,6 @@ export const setupWebsocketOnServer = (
   server: http.Server,
   wsLogin: WsLogin,
   doTask: TaskHandler,
-  logAdmin: Context["logAdmin"],
-  sendFileAdmin: Context["sendFile"],
   uploadToCloudStorage: (path: string) => Promise<string>,
 ) => {
   const { addSocket, removeSocket, sendToUser } = makeSocketManager();
@@ -143,8 +119,6 @@ export const setupWebsocketOnServer = (
       withContext(
         webCommunications(
           sendToUser(uniqueId),
-          sendFileAdmin,
-          (x: string) => logAdmin(`${humanReadableId}: ${x}`),
           humanReadableId,
           uploadToCloudStorage,
         ),
