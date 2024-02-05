@@ -1,4 +1,4 @@
-import { coerce } from "gamla";
+import { coerce, pipe } from "gamla";
 import { withContextTyped } from "./api.ts";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
@@ -66,6 +66,12 @@ export const whatsappWebhookVerificationHandler = (
   },
 });
 
+const convertToWhatsAppFormat = (message: string): string =>
+  message
+    .replace(/<b>(.*?)<\/b>/g, "*$1*") // Replace <b> tags with *
+    .replace(/<u>(.*?)<\/u>/g, "_$1_") // Replace <u> tags with _
+    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 ($1)"); // Replace <a> tags with text (link)
+
 export const whatsappBusinessHandler = (
   accessToken: string,
   whatsappPath: string,
@@ -79,10 +85,13 @@ export const whatsappBusinessHandler = (
       ? withContextTyped(
         {
           userId: () => coerce(fromNumber(msg)),
-          logText: sendMessage(
-            accessToken,
-            toNumber(msg),
-            coerce(fromNumber(msg)),
+          logText: pipe(
+            convertToWhatsAppFormat,
+            sendMessage(
+              accessToken,
+              toNumber(msg),
+              coerce(fromNumber(msg)),
+            ),
           ),
         },
         doTask,
