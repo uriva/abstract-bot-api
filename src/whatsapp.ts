@@ -1,4 +1,4 @@
-import { coerce, pipe } from "gamla";
+import { coerce, letIn, pipe } from "gamla";
 import { withContextTyped } from "./api.ts";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
@@ -83,23 +83,23 @@ export const whatsappBusinessHandler = (
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? withContextTyped(
-        {
-          userId: () => coerce(fromNumber(msg)),
-          spinner: (x: string) =>
-            sendMessage(
-              accessToken,
-              toNumber(msg),
-              coerce(fromNumber(msg)),
-            )(x).then(() => () => Promise.resolve()),
-          logText: pipe(
-            convertToWhatsAppFormat,
-            sendMessage(
-              accessToken,
-              toNumber(msg),
-              coerce(fromNumber(msg)),
-            ),
+        letIn(
+          sendMessage(
+            accessToken,
+            toNumber(msg),
+            coerce(fromNumber(msg)),
           ),
-        },
+          (send) => ({
+            userId: () => coerce(fromNumber(msg)),
+            logURL: (text: string, url: string, urlText: string) =>
+              send([text, urlText + ":", url].join("\n\n")),
+            spinner: (x: string) => send(x).then(() => () => Promise.resolve()),
+            logText: pipe(
+              convertToWhatsAppFormat,
+              send,
+            ),
+          }),
+        ),
         doTask,
       )({ text: messageText(msg) })
       : Promise.resolve(),
