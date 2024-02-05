@@ -3,9 +3,10 @@ import {
   bouncerServer,
   makeTelegramHandler,
   setTelegramWebhook,
+  withSpinner,
 } from "../src/index.ts";
 
-import { coerce } from "gamla";
+import { coerce, sleep } from "gamla";
 import { logInContext } from "../src/api.ts";
 import {
   whatsappBusinessHandler,
@@ -17,8 +18,9 @@ const botServerSuffix = "/bot-url-suffix";
 
 const whatsappPath = "/whatsapp-url-suffix";
 
-const handleMessage = (task: AbstractIncomingMessage) => {
+const handleMessage = async (task: AbstractIncomingMessage) => {
   console.log("got task", task);
+  await withSpinner("waiting needlessly", sleep)(5000);
   return logInContext("hi there i got " + JSON.stringify(task));
 };
 
@@ -40,4 +42,6 @@ await bouncerServer(
     ),
   ],
 );
-await setTelegramWebhook(telegramToken, url + botServerSuffix);
+await setTelegramWebhook(telegramToken, url + botServerSuffix).then(
+  console.log,
+);

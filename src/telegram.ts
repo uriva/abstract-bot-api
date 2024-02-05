@@ -1,14 +1,4 @@
-import {
-  coerce,
-  letIn,
-  max,
-  pipe,
-  prop,
-  retry,
-  sleep,
-  throttle,
-  withContext,
-} from "gamla";
+import { coerce, letIn, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import {
   Contact,
   File,
@@ -21,7 +11,7 @@ import fs from "node:fs";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { TaskHandler } from "./api.ts";
+import { TaskHandler, withContextTyped } from "./api.ts";
 import { AbstractIncomingMessage, Endpoint } from "./index.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
@@ -49,7 +39,7 @@ const telegramProgressBar =
       if (bar(progress) === bar(lastValue)) return Promise.resolve();
       lastValue = progress;
       return tgm
-        .editMessageText(uid, message_id, undefined, bar(progress));
+        .editMessageText(uid, message_id, undefined, bar(progress)).then();
     });
   };
 
@@ -69,7 +59,7 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
         undefined,
         `${text} ${spinnerMessages[frame]}`,
         // It may throw an error about the old text being the same as the new, this is not interesting and in general this update doesn't have to succeed.
-      ).catch(() => {});
+      ).then().catch(() => {});
     await sleep(500);
     return update((frame + 1) % spinnerMessages.length);
   };
@@ -77,7 +67,8 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
   return async () => {
     finished = true;
     await spinning;
-    return tgm.editMessageText(uid, messageId, undefined, `${text} done.`);
+    return tgm.editMessageText(uid, messageId, undefined, `${text} done.`)
+      .then(() => {});
   };
 };
 
@@ -185,7 +176,7 @@ export const makeTelegramHandler = (
       message?.from && message.text
         ? pipe(
           abstractMessage(telegramToken),
-          withContext(
+          withContextTyped(
             letIn(
               {
                 from: message.from,

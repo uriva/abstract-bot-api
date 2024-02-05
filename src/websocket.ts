@@ -1,8 +1,8 @@
-import { complement, equals, nonempty, pipe, withContext } from "gamla";
+import { complement, equals, nonempty, pipe } from "gamla";
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "npm:ws";
 
-import { TaskHandler, UniqueUserId } from "./api.ts";
+import { TaskHandler, UniqueUserId, withContextTyped } from "./api.ts";
 
 type SocketMessage = {
   key?: number;
@@ -116,7 +116,7 @@ export const setupWebsocketOnServer = (
       const { uniqueId, humanReadableId } = loginResult;
       addSocket(ws, uniqueId);
       if (!text) return;
-      withContext(
+      withContextTyped(
         webCommunications(
           sendToUser(uniqueId),
           humanReadableId,

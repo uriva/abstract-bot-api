@@ -1,8 +1,8 @@
-import { letIn, map, withContext } from "gamla";
+import { letIn, map } from "gamla";
 // @ts-expect-error no typing
 import greenApi from "npm:@green-api/whatsapp-api-client";
 
-import { TaskHandler } from "./api.ts";
+import { TaskHandler, withContextTyped } from "./api.ts";
 import { Endpoint } from "./index.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
@@ -90,7 +90,7 @@ export const greenApiHandler = (
   method: "POST",
   path,
   handler: (msg: GreenApiMessage) =>
-    withContext(
+    withContextTyped(
       communications(
         greenCredentials,
         uploadToCloudStorage,

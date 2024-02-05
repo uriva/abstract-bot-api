@@ -1,5 +1,6 @@
+import { coerce } from "gamla";
+import { withContextTyped } from "./api.ts";
 import { TaskHandler } from "./index.ts";
-import { coerce, sideLog, withContext } from "gamla";
 import { Endpoint } from "./taskBouncer.ts";
 
 const sendMessage =
@@ -75,13 +76,13 @@ export const whatsappBusinessHandler = (
   path: whatsappPath,
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
-      ? withContext(
+      ? withContextTyped(
         {
-          userId: sideLog(fromNumber(msg)),
+          userId: () => coerce(fromNumber(msg)),
           logText: sendMessage(
             accessToken,
             toNumber(msg),
-            sideLog(coerce(fromNumber(msg))),
+            coerce(fromNumber(msg)),
           ),
         },
         doTask,

@@ -62,7 +62,11 @@ const bouncer = (
         success(res, typeof x === "string" ? x : null)
       );
     },
-  );
+  ).catch((e) => {
+    console.error(e);
+    res.writeHead(500);
+    res.end();
+  });
 };
 
 const addTask = (domain: string, msg: Task) =>

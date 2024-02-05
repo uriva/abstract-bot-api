@@ -1,4 +1,5 @@
-import { getContextEntry } from "gamla";
+import { getContextEntry, withContext } from "gamla";
+import { Func } from "https://deno.land/x/gamla@53.0.0/src/typing.ts";
 import { basename } from "node:path";
 
 const defaultContext = {
@@ -70,3 +71,8 @@ export type TaskHandler =
   (incoming: AbstractIncomingMessage) => Promise<any>;
 
 export type UniqueUserId = string;
+
+export const withContextTyped = (
+  context: Partial<typeof defaultContext>,
+  f: Func,
+) => withContext(context, f);
