@@ -16,7 +16,7 @@ const sendMessage =
         }),
         headers: { "Content-Type": "application/json" },
       },
-    );
+    ).then(() => {});
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -85,6 +85,12 @@ export const whatsappBusinessHandler = (
       ? withContextTyped(
         {
           userId: () => coerce(fromNumber(msg)),
+          spinner: (x: string) =>
+            sendMessage(
+              accessToken,
+              toNumber(msg),
+              coerce(fromNumber(msg)),
+            )(x).then(() => () => Promise.resolve()),
           logText: pipe(
             convertToWhatsAppFormat,
             sendMessage(
