@@ -22,7 +22,7 @@ import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { TaskHandler } from "./api.ts";
-import { AbstractIncomingMessage } from "./index.ts";
+import { AbstractIncomingMessage, Endpoint } from "./index.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
   retry(
@@ -172,34 +172,44 @@ async (
   ownPhone: msg.contact && sharedOwnPhone(coerce(msg.from?.id), msg.contact),
 });
 
-export const makeTelegramHandler =
-  (telegramToken: string, doTask: TaskHandler) => ({ message }: Update) =>
-    message?.from && message.text
-      ? pipe(
-        abstractMessage(telegramToken),
-        withContext(
-          letIn(
-            {
-              from: message.from,
-              tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
-                .telegram,
-            },
-            ({ from, tgm }) => ({
-              userId: () => message.from.id.toString(),
-              fileLimitMB: () => 50,
-              sendFile: sendFile(tgm, from.id),
-              logText: (t: string) =>
-                sendTelegramMessage(telegramToken)(from.id, t),
-              makeProgressBar: telegramProgressBar(tgm, from.id),
-              spinner: makeSpinner(tgm, from.id),
-              logURL: pipe(
-                (text: string, url: string, urlText: string) =>
-                  `${text}\n\n<a href="${url}">${urlText}</a>`,
-                (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
-              ),
-            }),
+export const makeTelegramHandler = (
+  telegramToken: string,
+  path: string,
+  doTask: TaskHandler,
+): Endpoint => (
+  {
+    bounce: true,
+    method: "POST",
+    path,
+    handler: ({ message }: Update) =>
+      message?.from && message.text
+        ? pipe(
+          abstractMessage(telegramToken),
+          withContext(
+            letIn(
+              {
+                from: message.from,
+                tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
+                  .telegram,
+              },
+              ({ from, tgm }) => ({
+                userId: () => message.from.id.toString(),
+                fileLimitMB: () => 50,
+                sendFile: sendFile(tgm, from.id),
+                logText: (t: string) =>
+                  sendTelegramMessage(telegramToken)(from.id, t),
+                makeProgressBar: telegramProgressBar(tgm, from.id),
+                spinner: makeSpinner(tgm, from.id),
+                logURL: pipe(
+                  (text: string, url: string, urlText: string) =>
+                    `${text}\n\n<a href="${url}">${urlText}</a>`,
+                  (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
+                ),
+              }),
+            ),
+            doTask,
           ),
-          doTask,
-        ),
-      )(message)
-      : Promise.resolve();
+        )(message)
+        : Promise.resolve(),
+  }
+);

@@ -5,27 +5,39 @@ import {
   setTelegramWebhook,
 } from "../src/index.ts";
 
-import { User } from "grammy_types";
+import { coerce } from "gamla";
 import { logInContext } from "../src/api.ts";
+import {
+  whatsappBusinessHandler,
+  whatsappWebhookVerificationHandler,
+} from "../src/whatsapp.ts";
 
-const url = "<url here>";
-const telegramToken = "<token here>";
-const botServerSuffix = "/my-suffix>";
+const telegramToken = coerce(Deno.env.get("TELEGRAM_TOKEN"));
+const botServerSuffix = "/bot-url-suffix";
+
+const whatsappPath = "/whatsapp-url-suffix";
+
+const handleMessage = (task: AbstractIncomingMessage) => {
+  console.log("got task", task);
+  return logInContext("hi there i got " + JSON.stringify(task));
+};
+
+const url = coerce(Deno.env.get("URL"));
 
 await bouncerServer(
   url,
-  "<port>",
-  {
-    [botServerSuffix]: makeTelegramHandler(
-      telegramToken,
-      (task: AbstractIncomingMessage) => {
-        console.log("got task", task);
-        return logInContext("hi there");
-      },
-      (t: string) => Promise.resolve(console.log(t)),
-      () => Promise.resolve(),
-      (_: User) => false,
+  coerce(Deno.env.get("PORT")),
+  [
+    makeTelegramHandler(telegramToken, botServerSuffix, handleMessage),
+    whatsappBusinessHandler(
+      coerce(Deno.env.get("WHATSAPP_ACCESS_TOKEN")),
+      whatsappPath,
+      handleMessage,
     ),
-  },
+    whatsappWebhookVerificationHandler(
+      coerce(Deno.env.get("WHATSAPP_VERIFICATION_TOKEN")),
+      whatsappPath,
+    ),
+  ],
 );
 await setTelegramWebhook(telegramToken, url + botServerSuffix);

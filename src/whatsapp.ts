@@ -1,94 +1,90 @@
-import { letIn, map, withContext } from "gamla";
-// @ts-expect-error no typing
-import whatsAppClient from "npm:@green-api/whatsapp-api-client";
+import { TaskHandler } from "./index.ts";
+import { coerce, sideLog, withContext } from "gamla";
+import { Endpoint } from "./taskBouncer.ts";
 
-import { TaskHandler } from "./api.ts";
+const sendMessage =
+  (accessToken: string, from: string, to: string) => (body: string) =>
+    fetch(
+      `https://graph.facebook.com/v12.0/${from}/messages?access_token=${accessToken}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to,
+          text: { body },
+        }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
 
-export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
-
-type ExtendedTextMessageData = {
-  text: string;
-  description: string;
-  title: string;
-  previewType: string;
-  jpegThumbnail: string;
-  forwardingScore: number;
-  isForwarded: false;
-};
-
-type SenderData = {
-  chatId: string;
-  chatName: string;
-  sender: string;
-  senderName: string;
-};
-
+// https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
-  idMessage: string;
-  timestamp: number;
-  senderData: SenderData;
-  messageData:
-    | {
-      typeMessage: "textMessage";
-      textMessageData: { textMessage: string };
-    }
-    | {
-      typeMessage: "extendedTextMessage";
-      extendedTextMessageData: ExtendedTextMessageData;
-    };
+  object: string;
+  entry: {
+    changes: {
+      value: {
+        metadata: { phone_number_id: string };
+        messages?: { from: string; text: { body: string } }[];
+      };
+    }[];
+  }[];
 };
 
-const senderFromWhatsappMessage = ({
-  senderData: { sender },
-}: WhatsappMessage) => sender;
+type WebhookVerification = {
+  "hub.mode": string;
+  "hub.verify_token": string;
+  "hub.challenge": string;
+};
 
-const textFromWhatsappMessage = ({ messageData }: WhatsappMessage) =>
-  messageData.typeMessage === "extendedTextMessage"
-    ? messageData.extendedTextMessageData.text
-    : messageData.textMessageData.textMessage;
+const fromNumber = (
+  msg: WhatsappMessage,
+) => msg.entry[0].changes[0].value.messages?.[0].from;
 
-export const registerWebhook = (
-  credentials: GreenCredentials,
-  webhookUrl: string,
-) => whatsAppClient.restAPI(credentials).settings.setSettings({ webhookUrl });
+const messageText = (
+  msg: WhatsappMessage,
+) => msg.entry[0].changes[0].value.messages?.[0].text.body;
 
-const whatsappCommunications = (
-  credentials: GreenCredentials,
-  uploadToCloudStorage: StoreOnCloud,
-) =>
-  letIn(
-    whatsAppClient.restAPI(credentials),
-    (api) => (userId: string) => ({
-      fileLimitMB: () => 50,
-      userId: () => userId,
-      sendFile: async (file: string) =>
-        api.file.sendFileByUrl(
-          userId,
-          null,
-          await uploadToCloudStorage(file),
-          "video.mp4",
-          "",
-        ),
-      logText: (txt: string) => api.message.sendMessage(userId, null, txt),
-      logURL: (text: string, url: string, urlText: string) =>
-        map(
-          (txt: string) => api.message.sendMessage(userId, null, txt),
-        )([text, `${urlText}: ${url}`]),
-    }),
-  );
+const toNumber = (
+  { entry: [{ changes: [{ value: { metadata: { phone_number_id } } }] }] }:
+    WhatsappMessage,
+) => phone_number_id;
 
-type StoreOnCloud = (path: string) => Promise<string>;
+export const whatsappWebhookVerificationHandler = (
+  verifyToken: string,
+  path: string,
+): Endpoint => ({
+  method: "GET",
+  bounce: false,
+  path,
+  handler: (msg: WebhookVerification) => {
+    if (
+      msg["hub.mode"] === "subscribe" &&
+      verifyToken === msg["hub.verify_token"]
+    ) return Promise.resolve(msg["hub.challenge"]);
+    return Promise.resolve();
+  },
+});
 
-export const whatsappHandler = (
-  greenCredentials: GreenCredentials,
+export const whatsappBusinessHandler = (
+  accessToken: string,
+  whatsappPath: string,
   doTask: TaskHandler,
-  uploadToCloudStorage: StoreOnCloud,
-) =>
-(msg: WhatsappMessage) =>
-  withContext(
-    whatsappCommunications(
-      greenCredentials,
-      uploadToCloudStorage,
-    )(senderFromWhatsappMessage(msg)),
-    doTask,
-  )({ text: textFromWhatsappMessage(msg) });
+): Endpoint => ({
+  bounce: true,
+  method: "POST",
+  path: whatsappPath,
+  handler: (msg: WhatsappMessage) =>
+    msg.entry[0].changes[0].value.messages
+      ? withContext(
+        {
+          userId: sideLog(fromNumber(msg)),
+          logText: sendMessage(
+            accessToken,
+            toNumber(msg),
+            sideLog(coerce(fromNumber(msg))),
+          ),
+        },
+        doTask,
+      )({ text: messageText(msg) })
+      : Promise.resolve(),
+});

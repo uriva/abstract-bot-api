@@ -1,5 +1,7 @@
-import { sideLog } from "gamla";
+import { coerce, sideLog } from "gamla";
 import http from "node:http";
+import querystring from "node:querystring";
+import url from "node:url";
 
 const getJson = <T>(req: http.IncomingMessage): Promise<T> =>
   new Promise((resolve, reject) => {
@@ -13,61 +15,98 @@ const getJson = <T>(req: http.IncomingMessage): Promise<T> =>
     req.on("error", reject);
   });
 
-const success = (res: http.ServerResponse) => {
+const success = (res: http.ServerResponse, output: string | null) => {
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ message: "Data received successfully" }));
+  res.end(output ?? JSON.stringify({ message: "Data received successfully" }));
 };
 
 // deno-lint-ignore no-explicit-any
-type BouncedTask = { url: string; payload: any };
+type Task = { url: string; payload: any; method: string };
 
-const bouncer =
-  (domain: string, handler: (task: BouncedTask) => Promise<void>) =>
-  (req: http.IncomingMessage, res: http.ServerResponse) => {
-    console.log(req.url, req.method);
-    if (req.method === "POST" && req.url === "/") {
-      getJson<BouncedTask>(req)
-        .then(handler)
-        .then(() => success(res));
-      return;
-    }
-    if (req.method === "POST") {
-      getJson<BouncedTask["payload"]>(req).then((payload) => {
-        // Don't await on this, so telegram won't retry when task takes a long time to finish.
-        addTask(domain, { url: req.url, payload } as BouncedTask).catch((e) => {
-          console.error("error submitting task", e);
-        });
-        return success(res);
-      });
-      return;
-    }
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("Not Found");
-  };
+const parseUrlParamsAsJson = (requestURL: string) =>
+  querystring.parse(url.parse(requestURL).query || "");
 
-const addTask = (domain: string, msg: BouncedTask) =>
+const bouncer = (
+  domain: string,
+  shouldDefer: (task: Task) => boolean,
+  deferredHandler: (task: Task) => Promise<void>,
+) =>
+(req: http.IncomingMessage, res: http.ServerResponse) => {
+  console.log(req.url, req.method);
+  if (req.method === "POST" && req.url === "/") {
+    getJson<Task>(req)
+      .then(deferredHandler)
+      .then(() => success(res, null));
+    return;
+  }
+  const params = req.method === "POST"
+    ? getJson(req)
+    : Promise.resolve(parseUrlParamsAsJson(coerce(req.url)));
+  params.then(
+    (payload) => {
+      const task = {
+        method: coerce(req.method),
+        url: coerce(url.parse(coerce(req.url), true).pathname),
+        payload,
+      };
+      if (shouldDefer(task)) { // Don't await on this, so telegram won't retry when task takes a long time to finish.
+        addTask(domain, task)
+          .catch(
+            (e) => {
+              console.error("error submitting task", e);
+            },
+          );
+        return success(res, null);
+      }
+      return deferredHandler(task).then((x) =>
+        success(res, typeof x === "string" ? x : null)
+      );
+    },
+  );
+};
+
+const addTask = (domain: string, msg: Task) =>
   fetch(domain, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(msg),
   });
 
+// deno-lint-ignore no-explicit-any
+type Handler = (payload: Task["payload"]) => Promise<any>;
+
+export type Endpoint = {
+  bounce: boolean;
+  handler: Handler;
+  method: "POST" | "GET";
+  path: string;
+};
+
 export const bouncerServer = (
   domain: string,
   port: string,
-  handlers: Record<
-    string,
-    // deno-lint-ignore no-explicit-any
-    (payload: BouncedTask["payload"]) => Promise<any>
-  >,
+  endpoints: Endpoint[],
 ) =>
   new Promise<http.Server>((resolve) => {
     const server = http.createServer(
-      bouncer(domain, ({ url, payload }: BouncedTask) => {
-        if (url in handlers) return handlers[url](sideLog(payload));
-        console.log("no handler for request", url, payload);
-        return Promise.resolve();
-      }),
+      bouncer(
+        domain,
+        (task: Task) =>
+          endpoints.find(({ path, method }) =>
+            path === task.url && method === task.method
+          )?.bounce ?? false,
+        (task: Task) => {
+          for (
+            const endpoint of endpoints.filter(({ path, method }) =>
+              path === task.url && method === task.method
+            )
+          ) {
+            return endpoint.handler(sideLog(task.payload));
+          }
+          console.log("no handler for request", task);
+          return Promise.resolve();
+        },
+      ),
     );
     server.listen(port, () => {
       resolve(server);
