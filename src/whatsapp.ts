@@ -68,9 +68,9 @@ export const whatsappWebhookVerificationHandler = (
 
 const convertToWhatsAppFormat = (message: string): string =>
   message
-    .replace(/<b>(.*?)<\/b>/g, "*$1*") // Replace <b> tags with *
-    .replace(/<u>(.*?)<\/u>/g, "_$1_") // Replace <u> tags with _
-    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 ($1)"); // Replace <a> tags with text (link)
+    .replace(/<b>(.*?)<\/b>/g, "*$1*")
+    .replace(/<u>(.*?)<\/u>/g, "_$1_")
+    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
 
 export const whatsappBusinessHandler = (
   accessToken: string,
