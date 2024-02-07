@@ -1,5 +1,4 @@
-import { coerce, letIn, pipe } from "gamla";
-import { withContextTyped } from "./api.ts";
+import { anymap, coerce, letIn, pipe, withContext } from "gamla";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
@@ -18,6 +17,23 @@ const sendMessage =
       },
     ).then(() => {});
 
+type TextMessage = {
+  id: string;
+  type: "text";
+  timestamp: string;
+  from: string;
+  text: { "body": string };
+};
+
+type RequestWelcome = {
+  id: string;
+  type: "request_welcome";
+  timestamp: string;
+  from: string;
+};
+
+type InnerMessage = TextMessage | RequestWelcome;
+
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
   object: string;
@@ -25,7 +41,7 @@ type WhatsappMessage = {
     changes: {
       value: {
         metadata: { phone_number_id: string };
-        messages?: { from: string; text: { body: string } }[];
+        messages?: InnerMessage[];
       };
     }[];
   }[];
@@ -37,13 +53,27 @@ type WebhookVerification = {
   "hub.challenge": string;
 };
 
-const fromNumber = (
-  msg: WhatsappMessage,
-) => msg.entry[0].changes[0].value.messages?.[0].from;
+const innerMessageTypeEquals =
+  (x: InnerMessage["type"]) => ({ type }: InnerMessage) => type === x;
 
-const messageText = (
-  msg: WhatsappMessage,
-) => msg.entry[0].changes[0].value.messages?.[0].text.body;
+const innerMessages = (message: WhatsappMessage) =>
+  message.entry[0].changes[0].value.messages || [];
+
+const fromNumber = pipe(innerMessages, (
+  messages: InnerMessage[],
+) => messages?.[0].from);
+
+const messageText = pipe(
+  innerMessages,
+  (messages: InnerMessage[]) =>
+    (messages.filter(innerMessageTypeEquals("text"))?.[0] as TextMessage).text
+      .body,
+);
+
+const isWelcome = pipe(
+  innerMessages,
+  anymap(innerMessageTypeEquals("request_welcome")),
+);
 
 const toNumber = (
   { entry: [{ changes: [{ value: { metadata: { phone_number_id } } }] }] }:
@@ -82,7 +112,7 @@ export const whatsappBusinessHandler = (
   path: whatsappPath,
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
-      ? withContextTyped(
+      ? withContext(
         letIn(
           sendMessage(
             accessToken,
@@ -100,7 +130,6 @@ export const whatsappBusinessHandler = (
             ),
           }),
         ),
-        doTask,
-      )({ text: messageText(msg) })
+      )(doTask)({ text: isWelcome(msg) ? "/start" : messageText(msg) })
       : Promise.resolve(),
 });

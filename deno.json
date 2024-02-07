@@ -3,7 +3,7 @@
     "build": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run build_npm.ts"
   },
   "imports": {
-    "gamla": "https://deno.land/x/gamla@53.0.0/src/index.ts",
+    "gamla": "https://deno.land/x/gamla@57.0.0/src/index.ts",
     "grammy_types": "https://deno.land/x/grammy_types@v3.3.0/mod.ts"
   }
 }

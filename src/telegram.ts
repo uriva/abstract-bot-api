@@ -1,4 +1,14 @@
-import { coerce, letIn, max, pipe, prop, retry, sleep, throttle } from "gamla";
+import {
+  coerce,
+  letIn,
+  max,
+  pipe,
+  prop,
+  retry,
+  sleep,
+  throttle,
+  withContext,
+} from "gamla";
 import {
   Contact,
   File,
@@ -11,7 +21,7 @@ import fs from "node:fs";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { TaskHandler, withContextTyped } from "./api.ts";
+import { TaskHandler } from "./api.ts";
 import { AbstractIncomingMessage, Endpoint } from "./index.ts";
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
@@ -176,7 +186,7 @@ export const makeTelegramHandler = (
       message?.from && message.text
         ? pipe(
           abstractMessage(telegramToken),
-          withContextTyped(
+          withContext(
             letIn(
               {
                 from: message.from,
@@ -198,8 +208,7 @@ export const makeTelegramHandler = (
                 ),
               }),
             ),
-            doTask,
-          ),
+          )(doTask),
         )(message)
         : Promise.resolve(),
   }
