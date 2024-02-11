@@ -17,18 +17,35 @@ import {
   PhotoSize,
   Update,
 } from "grammy_types";
-import got from "npm:got";
+import { Readable } from "node:stream";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { TaskHandler } from "./api.ts";
 import { AbstractIncomingMessage, Endpoint } from "./index.ts";
+import { get } from "node:https";
+
+const createUrlReadStream = (url: string): Readable => {
+  const readable = new Readable({ read() {} });
+  get(url, (response) => {
+    response.on("data", (chunk: any) => {
+      readable.push(chunk);
+    });
+    response.on("end", () => {
+      readable.push(null);
+    });
+  }).on("error", (error) => {
+    readable.emit("error", error);
+  });
+  return readable;
+};
 
 export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
   retry(
     3000,
     2,
-    (uid: number, path) => tgm.sendVideo(uid, { source: got.stream(path) }),
+    (uid: number, path) =>
+      tgm.sendVideo(uid, { source: createUrlReadStream(path) }),
   )(uid, path);
 
 const progressMessage =
