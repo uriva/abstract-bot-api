@@ -1,12 +1,11 @@
 import { getContextEntry } from "gamla";
-import { basename } from "node:path";
 
 const defaultContext = {
   fileLimitMB: () => Infinity,
   userId: () => "",
   // deno-lint-ignore no-explicit-any
-  sendFile: (file: string): Promise<any> =>
-    Deno.copyFile(file, `output-${basename(file)}`),
+  sendFile: (url: string): Promise<any> =>
+    Promise.resolve(console.log(`Not sending because mock: ${url}`)),
   // deno-lint-ignore no-explicit-any
   logText: (msg: string): Promise<any> => {
     console.log(msg);

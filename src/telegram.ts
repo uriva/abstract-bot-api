@@ -17,7 +17,7 @@ import {
   PhotoSize,
   Update,
 } from "grammy_types";
-import fs from "node:fs";
+import got from "npm:got";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
@@ -28,8 +28,7 @@ export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
   retry(
     3000,
     2,
-    (uid: number, path) =>
-      tgm.sendVideo(uid, { source: fs.createReadStream(path) }),
+    (uid: number, path) => tgm.sendVideo(uid, { source: got.stream(path) }),
   )(uid, path);
 
 const progressMessage =
