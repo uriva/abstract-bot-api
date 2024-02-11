@@ -121,8 +121,6 @@ export const whatsappBusinessHandler = (
           ),
           (send) => ({
             userId: () => coerce(fromNumber(msg)),
-            logURL: (text: string, url: string, urlText: string) =>
-              send([text, urlText + ":", url].join("\n\n")),
             spinner: (x: string) => send(x).then(() => () => Promise.resolve()),
             logText: pipe(
               convertToWhatsAppFormat,

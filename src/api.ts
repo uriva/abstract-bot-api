@@ -21,11 +21,6 @@ const defaultContext = {
     console.log(text);
     return Promise.resolve(() => Promise.resolve());
   },
-  // deno-lint-ignore no-explicit-any
-  logURL: (text: string, url: string, urlText: string): Promise<any> => {
-    console.log(text, url, urlText);
-    return Promise.resolve();
-  },
 };
 
 const fromContext = getContextEntry(defaultContext);
@@ -34,7 +29,6 @@ export const fileLimitMB = fromContext("fileLimitMB");
 export const userIdInContext = fromContext("userId");
 export const logInContext = fromContext("logText");
 export const sendFileInContext = fromContext("sendFile");
-export const logURLInContext = fromContext("logURL");
 export const makeProgressBar = fromContext("makeProgressBar");
 
 export const withSpinner = <

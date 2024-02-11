@@ -1,4 +1,4 @@
-import { letIn, map, withContext } from "gamla";
+import { letIn, withContext } from "gamla";
 // @ts-expect-error no typing
 import greenApi from "npm:@green-api/whatsapp-api-client";
 
@@ -53,46 +53,34 @@ export const registerWebhook = (
   webhookUrl: string,
 ) => greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
-const communications = (
-  credentials: GreenCredentials,
-  uploadToCloudStorage: StoreOnCloud,
-) =>
+const communications = (credentials: GreenCredentials) =>
   letIn(
     greenApi.restAPI(credentials),
     (api) => (userId: string) => ({
       fileLimitMB: () => 50,
       userId: () => userId,
-      sendFile: async (file: string) =>
+      sendFile: (url: string) =>
         api.file.sendFileByUrl(
           userId,
           null,
-          await uploadToCloudStorage(file),
+          url,
           "video.mp4",
           "",
         ),
       logText: (txt: string) => api.message.sendMessage(userId, null, txt),
-      logURL: (text: string, url: string, urlText: string) =>
-        map(
-          (txt: string) => api.message.sendMessage(userId, null, txt),
-        )([text, `${urlText}: ${url}`]),
     }),
   );
-
-type StoreOnCloud = (path: string) => Promise<string>;
 
 export const greenApiHandler = (
   greenCredentials: GreenCredentials,
   path: string,
   doTask: TaskHandler,
-  uploadToCloudStorage: StoreOnCloud,
 ): Endpoint => ({
   bounce: true,
   method: "POST",
   path,
   handler: (msg: GreenApiMessage) =>
-    withContext(
-      communications(greenCredentials, uploadToCloudStorage)(
-        messageSender(msg),
-      ),
-    )(doTask)({ text: messageText(msg) }),
+    withContext(communications(greenCredentials)(messageSender(msg)))(doTask)({
+      text: messageText(msg),
+    }),
 });

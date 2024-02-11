@@ -201,11 +201,6 @@ export const makeTelegramHandler = (
                   sendTelegramMessage(telegramToken)(from.id, t),
                 makeProgressBar: telegramProgressBar(tgm, from.id),
                 spinner: makeSpinner(tgm, from.id),
-                logURL: pipe(
-                  (text: string, url: string, urlText: string) =>
-                    `${text}\n\n<a href="${url}">${urlText}</a>`,
-                  (t: string) => sendTelegramMessage(telegramToken)(from.id, t),
-                ),
               }),
             ),
           )(doTask),

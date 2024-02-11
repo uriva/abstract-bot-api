@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from "npm:ws";
 
 import { TaskHandler, UniqueUserId } from "./api.ts";
 
-type SocketMessage = {
+type Messsage = {
   key?: number;
   text?: string;
   percentage?: number;
@@ -15,13 +15,12 @@ type SocketMessage = {
 
 type Manager = {
   mapping: Record<string, WebSocket[]>;
-  buffered: Record<string, SocketMessage[]>;
+  buffered: Record<string, Messsage[]>;
 };
 
 const webCommunications = (
-  send: (x: SocketMessage) => Promise<void>,
+  send: (x: Messsage) => Promise<void>,
   userId: string,
-  uploadToCloudStorage: (path: string) => Promise<string>,
 ) => ({
   fileLimitMB: () => Infinity,
   userId: () => userId,
@@ -37,9 +36,7 @@ const webCommunications = (
     return () => send({ key, text, spinner: false });
   },
   logText: pipe((text: string) => ({ text }), send),
-  sendFile: pipe(uploadToCloudStorage, (url: string) => ({ url }), send),
-  logURL: (text: string, url: string, urlText: string) =>
-    send({ text, url, urlText }),
+  sendFile: pipe((url: string) => ({ url }), send),
 });
 
 const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
@@ -50,14 +47,13 @@ const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
     )
   );
 
-const sendToUser =
-  (manager: Manager) => (userId: string) => (msg: SocketMessage) =>
-    Promise.any((manager.mapping[userId] || []).map(jsonOnSocket(msg))).catch(
-      () => storeInBufffer(manager)(userId, msg),
-    );
+const sendToUser = (manager: Manager) => (userId: string) => (msg: Messsage) =>
+  Promise.any((manager.mapping[userId] || []).map(jsonOnSocket(msg))).catch(
+    () => storeInBufffer(manager)(userId, msg),
+  );
 
 const storeInBufffer =
-  (manager: Manager) => (userId: string, msg: SocketMessage) => {
+  (manager: Manager) => (userId: string, msg: Messsage) => {
     manager.buffered[userId] = [...(manager.buffered[userId] || []), msg];
   };
 
@@ -95,7 +91,6 @@ export const setupWebsocketOnServer = (
   server: http.Server,
   wsLogin: WsLogin,
   doTask: TaskHandler,
-  uploadToCloudStorage: (path: string) => Promise<string>,
 ) => {
   const { addSocket, removeSocket, sendToUser } = makeSocketManager();
   // deno-lint-ignore no-explicit-any
@@ -116,13 +111,9 @@ export const setupWebsocketOnServer = (
       const { uniqueId, humanReadableId } = loginResult;
       addSocket(ws, uniqueId);
       if (!text) return;
-      withContext(
-        webCommunications(
-          sendToUser(uniqueId),
-          humanReadableId,
-          uploadToCloudStorage,
-        ),
-      )(doTask)({ text });
+      withContext(webCommunications(sendToUser(uniqueId), humanReadableId))(
+        doTask,
+      )({ text });
     });
     ws.on("close", () => {
       removeSocket(ws);
