@@ -40,7 +40,7 @@ type WhatsappMessage = {
   entry: {
     changes: {
       value: {
-        metadata: { phone_number_id: string };
+        metadata: { phone_number_id: string; display_phone_number: string };
         messages?: InnerMessage[];
       };
     }[];
@@ -75,10 +75,15 @@ const isWelcome = pipe(
   anymap(innerMessageTypeEquals("request_welcome")),
 );
 
-const toNumber = (
+const toNumberId = (
   { entry: [{ changes: [{ value: { metadata: { phone_number_id } } }] }] }:
     WhatsappMessage,
 ) => phone_number_id;
+
+const toNumber = (
+  { entry: [{ changes: [{ value: { metadata: { display_phone_number } } }] }] }:
+    WhatsappMessage,
+) => display_phone_number;
 
 export const whatsappWebhookVerificationHandler = (
   verifyToken: string,
@@ -116,7 +121,7 @@ export const whatsappBusinessHandler = (
         letIn(
           sendMessage(
             accessToken,
-            toNumber(msg),
+            toNumberId(msg),
             coerce(fromNumber(msg)),
           ),
           (send) => ({
