@@ -7,7 +7,7 @@ import {
 } from "../src/index.ts";
 
 import { coerce, sleep } from "gamla";
-import { logInContext } from "../src/api.ts";
+import { reply } from "../src/api.ts";
 import {
   whatsappBusinessHandler,
   whatsappWebhookVerificationHandler,
@@ -21,7 +21,7 @@ const whatsappPath = "/whatsapp-url-suffix";
 const handleMessage = async (task: AbstractIncomingMessage) => {
   console.log("got task", task);
   await withSpinner("waiting needlessly", sleep)(5000);
-  return logInContext("hi there i got " + JSON.stringify(task));
+  return reply("hi there i got " + JSON.stringify(task));
 };
 
 const url = coerce(Deno.env.get("URL"));

@@ -1,36 +1,43 @@
-import { getContextEntry } from "gamla";
+import { context } from "gamla";
 
-const defaultContext = {
-  fileLimitMB: () => Infinity,
-  userId: () => "",
+export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
+  Infinity
+);
+export const { inject: injectBotPhone, access: botPhone } = context(():
+  | string
+  | null => null
+);
+
+export const { inject: injectUserId, access: userId } = context(() => "");
+
+export const { inject: injectReply, access: reply } = context(
   // deno-lint-ignore no-explicit-any
-  sendFile: (url: string): Promise<any> =>
-    Promise.resolve(console.log(`Not sending because mock: ${url}`)),
-  // deno-lint-ignore no-explicit-any
-  logText: (msg: string): Promise<any> => {
-    console.log(msg);
+  (msg: string): Promise<any> => {
+    console.log("mock `reply`", msg);
     return Promise.resolve();
   },
-  makeProgressBar: (text: string) =>
-    Promise.resolve((percentage: number) => {
-      console.log(text, (percentage * 100).toFixed());
-      return Promise.resolve();
-    }),
-  spinner: (text: string) => {
+);
+
+export const { inject: injectSendFile, access: sendFile } = context((
+  url: string,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> => Promise.resolve(console.log(`Mock \`sendFile\`: ${url}`)));
+
+export const { inject: injectProgressBar, access: progressBar } = context((
+  text: string,
+) =>
+  Promise.resolve((percentage: number) => {
+    console.log(text, (percentage * 100).toFixed());
+    return Promise.resolve();
+  })
+);
+
+export const { inject: injectSpinner, access: spinner } = context(
+  (text: string) => {
     console.log(text);
     return Promise.resolve(() => Promise.resolve());
   },
-  botPhone: (): string | null => null,
-};
-
-const fromContext = getContextEntry(defaultContext);
-
-export const fileLimitMB = fromContext("fileLimitMB");
-export const botPhone = fromContext("botPhone");
-export const userIdInContext = fromContext("userId");
-export const logInContext = fromContext("logText");
-export const sendFileInContext = fromContext("sendFile");
-export const makeProgressBar = fromContext("makeProgressBar");
+);
 
 export const withSpinner = <
   // deno-lint-ignore no-explicit-any
@@ -41,7 +48,7 @@ export const withSpinner = <
 ): F =>
 // @ts-expect-error ts cannot infer
 async (...xs: Parameters<F>) => {
-  const stopSpinning = await fromContext("spinner")(text);
+  const stopSpinning = await spinner(text);
   try {
     const result = await f(...xs);
     await stopSpinning();

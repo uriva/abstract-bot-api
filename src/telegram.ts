@@ -1,14 +1,4 @@
-import {
-  coerce,
-  letIn,
-  max,
-  pipe,
-  prop,
-  retry,
-  sleep,
-  throttle,
-  withContext,
-} from "gamla";
+import { coerce, letIn, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import {
   Contact,
   File,
@@ -21,13 +11,22 @@ import { Readable } from "node:stream";
 import { Telegraf, Telegram } from "npm:telegraf";
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { TaskHandler } from "./api.ts";
-import { AbstractIncomingMessage, Endpoint } from "./index.ts";
 import { get } from "node:https";
+import {
+  injectFileLimitMB,
+  injectProgressBar,
+  injectReply,
+  injectSendFile,
+  injectSpinner,
+  injectUserId,
+  TaskHandler,
+} from "./api.ts";
+import { AbstractIncomingMessage, Endpoint } from "./index.ts";
 
 const createUrlReadStream = (url: string): Readable => {
   const readable = new Readable({ read() {} });
   get(url, (response) => {
+    // deno-lint-ignore no-explicit-any
     response.on("data", (chunk: any) => {
       readable.push(chunk);
     });
@@ -40,13 +39,14 @@ const createUrlReadStream = (url: string): Readable => {
   return readable;
 };
 
-export const sendFile = (tgm: Telegram, uid: number) => (path: string) =>
-  retry(
-    3000,
-    2,
-    (uid: number, path) =>
-      tgm.sendVideo(uid, { source: createUrlReadStream(path) }),
-  )(uid, path);
+export const sendFileTelegram =
+  (tgm: Telegram, uid: number) => (path: string) =>
+    retry(
+      3000,
+      2,
+      (uid: number, path) =>
+        tgm.sendVideo(uid, { source: createUrlReadStream(path) }),
+    )(uid, path);
 
 const progressMessage =
   (text: string, progressBarLength: number) => (progress: number) => {
@@ -202,24 +202,24 @@ export const makeTelegramHandler = (
       message?.from && message.text
         ? pipe(
           abstractMessage(telegramToken),
-          withContext(
-            letIn(
-              {
-                from: message.from,
-                tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
-                  .telegram,
-              },
-              ({ from, tgm }) => ({
-                userId: () => message.from.id.toString(),
-                fileLimitMB: () => 50,
-                sendFile: sendFile(tgm, from.id),
-                logText: (t: string) =>
-                  sendTelegramMessage(telegramToken)(from.id, t),
-                makeProgressBar: telegramProgressBar(tgm, from.id),
-                spinner: makeSpinner(tgm, from.id),
-              }),
-            ),
-          )(doTask),
+          letIn(
+            {
+              id: message.from.id,
+              tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
+                .telegram,
+            },
+            ({ id, tgm }) =>
+              pipe(
+                injectUserId(() => id.toString())<TaskHandler>,
+                injectFileLimitMB(() => 50)<TaskHandler>,
+                injectSendFile(sendFileTelegram(tgm, id))<TaskHandler>,
+                injectReply((t: string) =>
+                  sendTelegramMessage(telegramToken)(id, t)
+                )<TaskHandler>,
+                injectProgressBar(telegramProgressBar(tgm, id))<TaskHandler>,
+                injectSpinner(makeSpinner(tgm, id))<TaskHandler>,
+              )(doTask),
+          ),
         )(message)
         : Promise.resolve(),
   }

@@ -1,4 +1,10 @@
-import { anymap, coerce, letIn, pipe, withContext } from "gamla";
+import { anymap, coerce, letIn, pipe } from "gamla";
+import {
+  injectBotPhone,
+  injectReply,
+  injectSpinner,
+  injectUserId,
+} from "./api.ts";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
@@ -117,23 +123,24 @@ export const whatsappBusinessHandler = (
   path: whatsappPath,
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
-      ? withContext(
-        letIn(
-          sendMessage(
-            accessToken,
-            toNumberId(msg),
-            coerce(fromNumber(msg)),
-          ),
-          (send) => ({
-            botPhone: () => toNumber(msg),
-            userId: () => coerce(fromNumber(msg)),
-            spinner: (x: string) => send(x).then(() => () => Promise.resolve()),
-            logText: pipe(
+      ? letIn(
+        sendMessage(
+          accessToken,
+          toNumberId(msg),
+          coerce(fromNumber(msg)),
+        ),
+        (send) =>
+          pipe(
+            injectBotPhone(() => toNumber(msg))<TaskHandler>,
+            injectUserId(() => coerce(fromNumber(msg)))<TaskHandler>,
+            injectSpinner((x: string) =>
+              send(x).then(() => () => Promise.resolve())
+            )<TaskHandler>,
+            injectReply(pipe(
               convertToWhatsAppFormat,
               send,
-            ),
-          }),
-        ),
+            ))<TaskHandler>,
+          ),
       )(doTask)({ text: isWelcome(msg) ? "/start" : messageText(msg) })
       : Promise.resolve(),
 });

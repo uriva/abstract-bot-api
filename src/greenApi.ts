@@ -1,8 +1,14 @@
-import { letIn, withContext } from "gamla";
+import { pipe } from "gamla";
 // @ts-expect-error no typing
 import greenApi from "npm:@green-api/whatsapp-api-client";
 
-import { TaskHandler } from "./api.ts";
+import {
+  injectFileLimitMB,
+  injectReply,
+  injectSendFile,
+  injectUserId,
+  TaskHandler,
+} from "./api.ts";
 import { Endpoint } from "./index.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
@@ -53,26 +59,23 @@ export const registerWebhook = (
   webhookUrl: string,
 ) => greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
-const communications = (credentials: GreenCredentials) =>
-  letIn(
-    greenApi.restAPI(credentials),
-    (api) => (userId: string) => ({
-      fileLimitMB: () => 50,
-      userId: () => userId,
-      sendFile: (url: string) =>
-        api.file.sendFileByUrl(
-          userId,
-          null,
-          url,
-          "video.mp4",
-          "",
-        ),
-      logText: (txt: string) => api.message.sendMessage(userId, null, txt),
-    }),
+const communications = <T extends TaskHandler>(
+  api: ReturnType<typeof greenApi.restAPI>,
+  userId: string,
+) =>
+  pipe(
+    injectFileLimitMB(() => 50)<T>,
+    injectUserId(() => userId)<T>,
+    injectSendFile((url: string) =>
+      api.file.sendFileByUrl(userId, null, url, "video.mp4", "")
+    )<T>,
+    injectReply((txt: string) => api.message.sendMessage(userId, null, txt))<
+      T
+    >,
   );
 
 export const greenApiHandler = (
-  greenCredentials: GreenCredentials,
+  credentials: GreenCredentials,
   path: string,
   doTask: TaskHandler,
 ): Endpoint => ({
@@ -80,7 +83,7 @@ export const greenApiHandler = (
   method: "POST",
   path,
   handler: (msg: GreenApiMessage) =>
-    withContext(communications(greenCredentials)(messageSender(msg)))(doTask)({
+    communications(greenApi.restAPI(credentials), messageSender(msg))(doTask)({
       text: messageText(msg),
     }),
 });
