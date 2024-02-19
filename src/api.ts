@@ -20,11 +20,13 @@ const defaultContext = {
     console.log(text);
     return Promise.resolve(() => Promise.resolve());
   },
+  botPhone: (): string | null => null,
 };
 
 const fromContext = getContextEntry(defaultContext);
 
 export const fileLimitMB = fromContext("fileLimitMB");
+export const botPhone = fromContext("botPhone");
 export const userIdInContext = fromContext("userId");
 export const logInContext = fromContext("logText");
 export const sendFileInContext = fromContext("sendFile");
