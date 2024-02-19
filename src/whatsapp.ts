@@ -120,7 +120,7 @@ export const whatsappBusinessHandler = (
             coerce(fromNumber(msg)),
           ),
           (send) => ({
-            botPhone: () => coerce(toNumber(msg)),
+            botPhone: () => toNumber(msg),
             userId: () => coerce(fromNumber(msg)),
             spinner: (x: string) => send(x).then(() => () => Promise.resolve()),
             logText: pipe(
