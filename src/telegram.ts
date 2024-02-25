@@ -174,16 +174,19 @@ export const getBestPhoneFromContactShared = ({
 
 const abstractMessage = (token: string) =>
 async (
-  msg: grammy.Message,
+  { text, entities, contact, photo, caption, from }: grammy.Message,
 ): Promise<AbstractIncomingMessage> => ({
-  text: msg.text,
-  contact: msg.contact && {
-    name: contactToFullName(msg.contact),
-    phone: getBestPhoneFromContactShared(msg.contact),
+  text: text +
+    (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
+      (x) => x,
+    ).join("\n"),
+  contact: contact && {
+    name: contactToFullName(contact),
+    phone: getBestPhoneFromContactShared(contact),
   },
-  image: msg.photo && await image(token)(msg.photo),
-  caption: msg.caption,
-  ownPhone: msg.contact && sharedOwnPhone(coerce(msg.from?.id), msg.contact),
+  image: photo && await image(token)(photo),
+  caption,
+  ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
 });
 
 export const makeTelegramHandler = (
