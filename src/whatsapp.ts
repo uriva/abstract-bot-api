@@ -5,10 +5,10 @@ import {
   injectSpinner,
   injectUserId,
 } from "./api.ts";
-import { TaskHandler } from "./index.ts";
+import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, coerce, letIn, pipe } = gamla;
+const { anymap, coerce, letIn, pipe, empty } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
@@ -57,6 +57,7 @@ type WhatsappMessage = {
     changes: {
       value: {
         metadata: { phone_number_id: string; display_phone_number: string };
+        contacts?: { profile: { name: string }; wa_id: string }[];
         messages?: InnerMessage[];
       };
     }[];
@@ -124,6 +125,24 @@ const convertToWhatsAppFormat = (message: string): string =>
     .replace(/<u>(.*?)<\/u>/g, "_$1_")
     .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
 
+const getText = (msg: WhatsappMessage) =>
+  isWelcome(msg)
+    ? { text: "/start" }
+    : messageText(msg)
+    ? { text: messageText(msg) }
+    : {};
+
+const getContacts = (
+  msg: WhatsappMessage,
+): Record<string, never> | { contact: AbstractIncomingMessage["contact"] } => {
+  const contacts = msg.entry.flatMap(({ changes }) =>
+    changes.flatMap(({ value }) => value.contacts ?? [])
+  );
+  if (empty(contacts)) return {};
+  const [{ wa_id: phone, profile: { name } }] = contacts;
+  return { contact: { phone, name } };
+};
+
 export const whatsappBusinessHandler = (
   accessToken: string,
   whatsappPath: string,
@@ -148,6 +167,6 @@ export const whatsappBusinessHandler = (
             >,
             injectReply(send)<TaskHandler>,
           ),
-      )(doTask)({ text: isWelcome(msg) ? "/start" : messageText(msg) })
+      )(doTask)({ ...getText(msg), ...getContacts(msg) })
       : Promise.resolve(),
 });
