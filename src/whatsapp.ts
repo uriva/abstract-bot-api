@@ -136,7 +136,7 @@ const messageText = pipe(
     (messages.filter(innerMessageTypeEquals("text"))?.[0] as
       | TextMessage
       | undefined)?.text.body ??
-      (messages.filter(innerMessageTypeEquals("button_reply"))?.[0] as
+      (messages.filter(innerMessageTypeEquals("button"))?.[0] as
         | ButtonReply
         | undefined)?.button.text,
 );
