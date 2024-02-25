@@ -206,7 +206,7 @@ const getContacts = (
 
 // deno-lint-ignore no-explicit-any
 const agreessiveSideLog = (x: any) => {
-  console.log("agressive log\n" + JSON.stringify(x));
+  console.log("agressive log" + JSON.stringify(x));
   return x;
 };
 
