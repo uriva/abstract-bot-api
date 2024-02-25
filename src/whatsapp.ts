@@ -1,3 +1,4 @@
+import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
   injectReply,
@@ -6,33 +7,31 @@ import {
 } from "./api.ts";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
-import { gamla } from "../deps.ts";
 
 const { anymap, coerce, letIn, pipe, sideLog } = gamla;
 
 export const sendWhatsappMessage =
-  (accessToken: string, fromNumberId: string) =>
-  (to: string) =>
-  (body: string) =>
-    fetch(
-      sideLog(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          recipient_type: "individual",
-          type: "text",
-          messaging_product: "whatsapp",
-          to: sideLog(to),
-          text: { preview_url: false, body: sideLog(body) },
-        }),
-        headers: {
-          "Authorization": `Bearer ${sideLog(accessToken)}`,
-          "Content-Type": "application/json",
+  (accessToken: string, fromNumberId: string) => (to: string) =>
+    pipe(convertToWhatsAppFormat, (body: string) =>
+      fetch(
+        sideLog(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            recipient_type: "individual",
+            type: "text",
+            messaging_product: "whatsapp",
+            to: sideLog(to),
+            text: { preview_url: false, body: sideLog(body) },
+          }),
+          headers: {
+            "Authorization": `Bearer ${sideLog(accessToken)}`,
+            "Content-Type": "application/json",
+          },
         },
-      },
-    ).then(async (response) => {
-      if (!response.ok) throw new Error(await response.text());
-    });
+      ).then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+      }));
 
 type TextMessage = {
   id: string;
@@ -143,13 +142,10 @@ export const whatsappBusinessHandler = (
           pipe(
             injectBotPhone(() => toNumber(msg))<TaskHandler>,
             injectUserId(() => coerce(fromNumber(msg)))<TaskHandler>,
-            injectSpinner((x: string) =>
-              send(x).then(() => () => Promise.resolve())
-            )<TaskHandler>,
-            injectReply(pipe(
-              convertToWhatsAppFormat,
-              send,
-            ))<TaskHandler>,
+            injectSpinner(pipe(send, (_) => () => Promise.resolve()))<
+              TaskHandler
+            >,
+            injectReply(send)<TaskHandler>,
           ),
       )(doTask)({ text: isWelcome(msg) ? "/start" : messageText(msg) })
       : Promise.resolve(),
