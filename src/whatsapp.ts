@@ -1,4 +1,4 @@
-import { anymap, coerce, letIn, pipe } from "gamla";
+import { anymap, coerce, letIn, pipe, sideLog } from "gamla";
 import {
   injectBotPhone,
   injectReply,
@@ -13,18 +13,18 @@ export const sendWhatsappMessage =
   (to: string) =>
   (body: string) =>
     fetch(
-      `https://graph.facebook.com/v19.0/${fromNumberId}/messages`,
+      sideLog(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`),
       {
         method: "POST",
         body: JSON.stringify({
           recipient_type: "individual",
           type: "text",
           messaging_product: "whatsapp",
-          to,
-          text: { preview_url: false, body },
+          to: sideLog(to),
+          text: { preview_url: false, body: sideLog(body) },
         }),
         headers: {
-          "Authorization": `Bearer ${accessToken}`,
+          "Authorization": `Bearer ${sideLog(accessToken)}`,
           "Content-Type": "application/json",
         },
       },
