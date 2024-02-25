@@ -3,7 +3,7 @@ import querystring from "node:querystring";
 import url from "node:url";
 import { gamla } from "../deps.ts";
 
-const { coerce, sideLog } = gamla;
+const { coerce } = gamla;
 
 const getJson = <T>(req: http.IncomingMessage): Promise<T> =>
   new Promise((resolve, reject) => {
@@ -34,7 +34,6 @@ const bouncer = (
   deferredHandler: (task: Task) => Promise<void>,
 ) =>
 (req: http.IncomingMessage, res: http.ServerResponse) => {
-  console.log(req.url, req.method);
   if (req.method === "POST" && req.url === "/") {
     getJson<Task>(req)
       .then(deferredHandler)
@@ -112,7 +111,7 @@ export const bouncerServer = (
               path === task.url && method === task.method
             )
           ) {
-            return endpoint.handler(sideLog(task.payload));
+            return endpoint.handler(task.payload);
           }
           console.log("no handler for request", task);
           return Promise.resolve();

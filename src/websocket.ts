@@ -83,9 +83,9 @@ const addSocket = (manager: Manager) => (ws: WebSocket, id: string) => {
   };
   const past = manager.buffered[id] || [];
   delete manager.buffered[id];
-  Promise.all(past.map(sendToUser(manager)(id))).then(() =>
-    console.log("sent past messages")
-  );
+  Promise.all(past.map(sendToUser(manager)(id))).catch(() => {
+    console.log("Failed sending past messages");
+  });
 };
 
 const makeSocketManager = () => {
@@ -105,9 +105,7 @@ export const setupWebsocketOnServer = (
   const { addSocket, removeSocket, sendToUser } = makeSocketManager();
   // deno-lint-ignore no-explicit-any
   new WebSocketServer({ server }).on("connection", (ws: any) => {
-    console.log("Client connected");
     ws.on("message", async (message: string) => {
-      console.log(`Received: ${message}`);
       const { text, token } = JSON.parse(message) as {
         text: string;
         token: string;
@@ -125,7 +123,6 @@ export const setupWebsocketOnServer = (
     });
     ws.on("close", () => {
       removeSocket(ws);
-      console.log("Client disconnected");
     });
   });
 };

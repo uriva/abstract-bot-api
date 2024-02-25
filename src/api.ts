@@ -15,7 +15,7 @@ export const { inject: injectUserId, access: userId } = context(() => "");
 export const { inject: injectReply, access: reply } = context(
   // deno-lint-ignore no-explicit-any
   (msg: string): Promise<any> => {
-    console.log("mock `reply`", msg);
+    console.log("Reply:", msg);
     return Promise.resolve();
   },
 );
@@ -23,20 +23,23 @@ export const { inject: injectReply, access: reply } = context(
 export const { inject: injectSendFile, access: sendFile } = context((
   url: string,
   // deno-lint-ignore no-explicit-any
-): Promise<any> => Promise.resolve(console.log(`Mock \`sendFile\`: ${url}`)));
+): Promise<any> => {
+  console.log("File:", url);
+  return Promise.resolve();
+});
 
 export const { inject: injectProgressBar, access: progressBar } = context((
   text: string,
 ) =>
   Promise.resolve((percentage: number) => {
-    console.log(text, (percentage * 100).toFixed());
+    console.log("Progress:", text, (percentage * 100).toFixed());
     return Promise.resolve();
   })
 );
 
 export const { inject: injectSpinner, access: spinner } = context(
   (text: string) => {
-    console.log(text);
+    console.log("Spinner:", text);
     return Promise.resolve(() => Promise.resolve());
   },
 );

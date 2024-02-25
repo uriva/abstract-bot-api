@@ -8,24 +8,24 @@ import {
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, coerce, letIn, pipe, sideLog } = gamla;
+const { anymap, coerce, letIn, pipe } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
     pipe(convertToWhatsAppFormat, (body: string) =>
       fetch(
-        sideLog(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`),
+        `https://graph.facebook.com/v19.0/${fromNumberId}/messages`,
         {
           method: "POST",
           body: JSON.stringify({
             recipient_type: "individual",
             type: "text",
             messaging_product: "whatsapp",
-            to: sideLog(to),
-            text: { preview_url: false, body: sideLog(body) },
+            to,
+            text: { preview_url: false, body },
           }),
           headers: {
-            "Authorization": `Bearer ${sideLog(accessToken)}`,
+            "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
         },
@@ -82,8 +82,9 @@ const fromNumber = pipe(innerMessages, (
 const messageText = pipe(
   innerMessages,
   (messages: InnerMessage[]) =>
-    (messages.filter(innerMessageTypeEquals("text"))?.[0] as TextMessage).text
-      .body,
+    (messages.filter(innerMessageTypeEquals("text"))?.[0] as
+      | TextMessage
+      | undefined)?.text.body,
 );
 
 const isWelcome = pipe(
