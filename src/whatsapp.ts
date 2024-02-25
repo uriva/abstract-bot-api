@@ -8,20 +8,29 @@ import {
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const sendMessage =
-  (accessToken: string, from: string, to: string) => (body: string) =>
+export const sendWhatsappMessage =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  (body: string) =>
     fetch(
-      `https://graph.facebook.com/v12.0/${from}/messages?access_token=${accessToken}`,
+      `https://graph.facebook.com/v19.0/${fromNumberId}/messages`,
       {
         method: "POST",
         body: JSON.stringify({
+          recipient_type: "individual",
+          type: "text",
           messaging_product: "whatsapp",
           to,
-          text: { body },
+          text: { preview_url: false, body },
         }),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
       },
-    ).then(() => {});
+    ).then(async (response) => {
+      if (!response.ok) throw new Error(await response.text());
+    });
 
 type TextMessage = {
   id: string;
@@ -124,11 +133,10 @@ export const whatsappBusinessHandler = (
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(
-        sendMessage(
+        sendWhatsappMessage(
           accessToken,
           toNumberId(msg),
-          coerce(fromNumber(msg)),
-        ),
+        )(coerce(fromNumber(msg))),
         (send) =>
           pipe(
             injectBotPhone(() => toNumber(msg))<TaskHandler>,
