@@ -64,7 +64,8 @@ const bouncer = (
         success(res, typeof x === "string" ? x : null)
       );
     },
-  ).catch((e) => {
+  ).catch((e: Error) => {
+    console.error(`Failed to process bounced message: ${e.message}`);
     console.error(e);
     res.writeHead(500);
     res.end();
