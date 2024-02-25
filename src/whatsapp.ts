@@ -41,13 +41,9 @@ type TextMessage = CommonProps & {
 };
 
 type ButtonReply = CommonProps & {
-  type: "button_reply";
-  title: string;
-};
-
-type ListReply = CommonProps & {
-  type: "list_reply";
-  description: string;
+  type: "button";
+  // deno-lint-ignore no-explicit-any
+  button: { payload: any; text: string };
 };
 
 type ContactsMessage = CommonProps & {
@@ -102,8 +98,7 @@ type InnerMessage =
   | TextMessage
   | RequestWelcome
   | ContactsMessage
-  | ButtonReply
-  | ListReply;
+  | ButtonReply;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -143,10 +138,7 @@ const messageText = pipe(
       | undefined)?.text.body ??
       (messages.filter(innerMessageTypeEquals("button_reply"))?.[0] as
         | ButtonReply
-        | undefined)?.title ??
-      (messages.filter(innerMessageTypeEquals("list_reply"))?.[0] as
-        | ListReply
-        | undefined)?.description,
+        | undefined)?.button.text,
 );
 
 const isWelcome = pipe(
@@ -204,12 +196,6 @@ const getContacts = (
   return { contact: { phone, name } };
 };
 
-// deno-lint-ignore no-explicit-any
-const agreessiveSideLog = (x: any) => {
-  console.log("agressive log" + JSON.stringify(x));
-  return x;
-};
-
 export const whatsappBusinessHandler = (
   accessToken: string,
   whatsappPath: string,
@@ -219,7 +205,7 @@ export const whatsappBusinessHandler = (
   method: "POST",
   path: whatsappPath,
   handler: (msg: WhatsappMessage) =>
-    agreessiveSideLog(msg).entry[0].changes[0].value.messages
+    msg.entry[0].changes[0].value.messages
       ? letIn(
         sendWhatsappMessage(
           accessToken,
