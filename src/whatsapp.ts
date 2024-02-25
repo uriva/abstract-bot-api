@@ -33,18 +33,24 @@ export const sendWhatsappMessage =
         if (!response.ok) throw new Error(await response.text());
       }));
 
-type TextMessage = {
-  from: string;
-  id: string;
-  timestamp: string;
+type CommonProps = { from: string; id: string; timestamp: string };
+
+type TextMessage = CommonProps & {
   type: "text";
   text: { "body": string };
 };
 
-type ContactsMessage = {
-  from: string;
-  id: string;
-  timestamp: string;
+type ButtonReply = CommonProps & {
+  type: "button_reply";
+  title: string;
+};
+
+type ListReply = CommonProps & {
+  type: "list_reply";
+  description: string;
+};
+
+type ContactsMessage = CommonProps & {
   contacts: {
     "addresses": [{
       "city": string;
@@ -92,7 +98,12 @@ type RequestWelcome = {
   type: "request_welcome";
 };
 
-type InnerMessage = TextMessage | RequestWelcome | ContactsMessage;
+type InnerMessage =
+  | TextMessage
+  | RequestWelcome
+  | ContactsMessage
+  | ButtonReply
+  | ListReply;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -129,7 +140,13 @@ const messageText = pipe(
   (messages: InnerMessage[]) =>
     (messages.filter(innerMessageTypeEquals("text"))?.[0] as
       | TextMessage
-      | undefined)?.text.body,
+      | undefined)?.text.body ??
+      (messages.filter(innerMessageTypeEquals("button_reply"))?.[0] as
+        | ButtonReply
+        | undefined)?.title ??
+      (messages.filter(innerMessageTypeEquals("list_reply"))?.[0] as
+        | ListReply
+        | undefined)?.description,
 );
 
 const isWelcome = pipe(
