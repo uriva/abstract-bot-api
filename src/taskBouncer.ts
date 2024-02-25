@@ -38,7 +38,12 @@ const bouncer = (
   if (req.method === "POST" && req.url === "/") {
     getJson<Task>(req)
       .then(deferredHandler)
-      .then(() => success(res, null));
+      .then(() => success(res, null))
+      .catch((e) => {
+        console.error(e);
+        res.writeHead(500);
+        res.end();
+      });
     return;
   }
   const params = req.method === "POST"
@@ -65,7 +70,6 @@ const bouncer = (
       );
     },
   ).catch((e: Error) => {
-    console.error(`Failed to process bounced message: ${e.message}`);
     console.error(e);
     res.writeHead(500);
     res.end();
