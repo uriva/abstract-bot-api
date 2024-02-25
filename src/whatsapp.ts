@@ -8,7 +8,7 @@ import {
 import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, coerce, letIn, pipe, empty } = gamla;
+const { sideLog, anymap, coerce, letIn, pipe, empty } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
@@ -204,6 +204,12 @@ const getContacts = (
   return { contact: { phone, name } };
 };
 
+// deno-lint-ignore no-explicit-any
+const agreessiveSideLog = (x: any) => {
+  console.log("agressive log\n" + JSON.stringify(x));
+  return x;
+};
+
 export const whatsappBusinessHandler = (
   accessToken: string,
   whatsappPath: string,
@@ -213,7 +219,7 @@ export const whatsappBusinessHandler = (
   method: "POST",
   path: whatsappPath,
   handler: (msg: WhatsappMessage) =>
-    msg.entry[0].changes[0].value.messages
+    agreessiveSideLog(msg).entry[0].changes[0].value.messages
       ? letIn(
         sendWhatsappMessage(
           accessToken,
