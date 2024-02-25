@@ -1,7 +1,6 @@
-import { complement, equals, nonempty, pipe } from "gamla";
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "npm:ws";
-
+import { gamla } from "../deps.ts";
 import {
   injectFileLimitMB,
   injectProgressBar,
@@ -13,6 +12,7 @@ import {
   UniqueUserId,
 } from "./api.ts";
 
+const { complement, equals, nonempty, pipe } = gamla;
 type Messsage = {
   key?: number;
   text?: string;

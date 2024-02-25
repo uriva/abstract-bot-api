@@ -1,7 +1,9 @@
-import { coerce, sideLog } from "gamla";
 import http from "node:http";
 import querystring from "node:querystring";
 import url from "node:url";
+import { gamla } from "../deps.ts";
+
+const { coerce, sideLog } = gamla;
 
 const getJson = <T>(req: http.IncomingMessage): Promise<T> =>
   new Promise((resolve, reject) => {

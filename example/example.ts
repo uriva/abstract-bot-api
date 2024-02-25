@@ -6,13 +6,14 @@ import {
   withSpinner,
 } from "../src/index.ts";
 
-import { coerce, sleep } from "gamla";
+import { gamla } from "../deps.ts";
 import { reply } from "../src/api.ts";
 import {
   whatsappBusinessHandler,
   whatsappWebhookVerificationHandler,
 } from "../src/whatsapp.ts";
 
+const { coerce, sleep } = gamla;
 const telegramToken = coerce(Deno.env.get("TELEGRAM_TOKEN"));
 const botServerSuffix = "/bot-url-suffix";
 

@@ -1,4 +1,3 @@
-import { anymap, coerce, letIn, pipe, sideLog } from "gamla";
 import {
   injectBotPhone,
   injectReply,
@@ -7,6 +6,9 @@ import {
 } from "./api.ts";
 import { TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
+import { gamla } from "../deps.ts";
+
+const { anymap, coerce, letIn, pipe, sideLog } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) =>

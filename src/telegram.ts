@@ -1,14 +1,9 @@
-import { coerce, letIn, max, pipe, prop, retry, sleep, throttle } from "gamla";
-import {
-  Contact,
-  File,
-  Message,
-  ParseMode,
-  PhotoSize,
-  Update,
-} from "grammy_types";
 import { Readable } from "node:stream";
 import { Telegraf, Telegram } from "npm:telegraf";
+
+import { gamla, grammy } from "../deps.ts";
+
+const { coerce, letIn, max, pipe, prop, retry, sleep, throttle } = gamla;
 
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { get } from "node:https";
@@ -111,7 +106,7 @@ export const sendTelegramMessage = (token: string) =>
           chat_id,
           text,
           disable_web_page_preview: true,
-          parse_mode: "HTML" as ParseMode,
+          parse_mode: "HTML" as grammy.ParseMode,
         }),
       }).then((r) =>
         r.json()
@@ -136,7 +131,7 @@ const fileIdToContentBase64 =
     );
     if (!response.ok) throw new Error("could not fetch photo url");
     const { result: { file_path } } = (await response.json()) as {
-      result: File;
+      result: grammy.File;
     };
     const imageResponse = await fetch(
       `https://api.telegram.org/file/bot${token}/${file_path}`,
@@ -147,21 +142,23 @@ const fileIdToContentBase64 =
 
 const image = (token: string) =>
   pipe(
-    max(prop<PhotoSize>()("width")),
-    prop<PhotoSize>()("file_id"),
+    max(prop<grammy.PhotoSize>()("width")),
+    prop<grammy.PhotoSize>()("file_id"),
     fileIdToContentBase64(token),
   );
 
-const sharedOwnPhone = (ownId: number, { user_id, phone_number }: Contact) =>
-  (user_id === ownId) ? phone_number : undefined;
+const sharedOwnPhone = (
+  ownId: number,
+  { user_id, phone_number }: grammy.Contact,
+) => (user_id === ownId) ? phone_number : undefined;
 
-const contactToFullName = ({ first_name, last_name }: Contact) =>
+const contactToFullName = ({ first_name, last_name }: grammy.Contact) =>
   first_name + (last_name ? " " + last_name : "");
 
 export const getBestPhoneFromContactShared = ({
   phone_number,
   vcard,
-}: Contact) => {
+}: grammy.Contact) => {
   if (!vcard) return phone_number;
   const lines = vcard.split("\n");
   const preferredCellphone = lines.find(
@@ -177,7 +174,7 @@ export const getBestPhoneFromContactShared = ({
 
 const abstractMessage = (token: string) =>
 async (
-  msg: Message,
+  msg: grammy.Message,
 ): Promise<AbstractIncomingMessage> => ({
   text: msg.text,
   contact: msg.contact && {
@@ -198,7 +195,7 @@ export const makeTelegramHandler = (
     bounce: true,
     method: "POST",
     path,
-    handler: ({ message }: Update) =>
+    handler: ({ message }: grammy.Update) =>
       message?.from && message.text
         ? pipe(
           abstractMessage(telegramToken),

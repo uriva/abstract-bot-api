@@ -1,4 +1,6 @@
-import { context } from "gamla";
+import { gamla } from "../deps.ts";
+
+const { context } = gamla;
 
 export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
   Infinity

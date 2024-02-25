@@ -1,6 +1,9 @@
-import { pipe } from "gamla";
+import { gamla } from "../deps.ts";
+
 // @ts-expect-error no typing
 import greenApi from "npm:@green-api/whatsapp-api-client";
+
+const { pipe } = gamla;
 
 import {
   injectFileLimitMB,
