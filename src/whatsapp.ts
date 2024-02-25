@@ -34,21 +34,65 @@ export const sendWhatsappMessage =
       }));
 
 type TextMessage = {
-  id: string;
-  type: "text";
-  timestamp: string;
   from: string;
+  id: string;
+  timestamp: string;
+  type: "text";
   text: { "body": string };
 };
 
-type RequestWelcome = {
-  id: string;
-  type: "request_welcome";
-  timestamp: string;
+type ContactsMessage = {
   from: string;
+  id: string;
+  timestamp: string;
+  contacts: {
+    "addresses": [{
+      "city": string;
+      "country": string;
+      "country_code": string;
+      "state": string;
+      "street": string;
+      "type": string;
+      "zip": string;
+    }];
+    "birthday": string;
+    "emails": [{
+      "email": string;
+      "type": "HOME" | "WORK";
+    }];
+    "name": {
+      "formatted_name": string;
+      "first_name": string;
+      "last_name": string;
+      "middle_name": string;
+      "suffix": string;
+      "prefix": string;
+    };
+    "org": {
+      "company": string;
+      "department": string;
+      "title": string;
+    };
+    "phones": [{
+      "phone": string;
+      "wa_id": string;
+      "type": "HOME" | "WORK";
+    }];
+    "urls": [{
+      "url": string;
+      "type": "HOME" | "WORK";
+    }];
+  }[];
 };
 
-type InnerMessage = TextMessage | RequestWelcome;
+type RequestWelcome = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "request_welcome";
+};
+
+type InnerMessage = TextMessage | RequestWelcome | ContactsMessage;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -70,8 +114,8 @@ type WebhookVerification = {
   "hub.challenge": string;
 };
 
-const innerMessageTypeEquals =
-  (x: InnerMessage["type"]) => ({ type }: InnerMessage) => type === x;
+const innerMessageTypeEquals = (y: string) => (x: InnerMessage) =>
+  "type" in x && x.type === y;
 
 const innerMessages = (message: WhatsappMessage) =>
   message.entry[0].changes[0].value.messages || [];
@@ -135,11 +179,11 @@ const getText = (msg: WhatsappMessage) =>
 const getContacts = (
   msg: WhatsappMessage,
 ): Record<string, never> | { contact: AbstractIncomingMessage["contact"] } => {
-  const contacts = msg.entry.flatMap(({ changes }) =>
-    changes.flatMap(({ value }) => value.contacts ?? [])
+  const contacts = innerMessages(msg).flatMap((x) =>
+    "contacts" in x ? x.contacts : []
   );
   if (empty(contacts)) return {};
-  const [{ wa_id: phone, profile: { name } }] = contacts;
+  const [{ phones: [{ phone }], name: { formatted_name: name } }] = contacts;
   return { contact: { phone, name } };
 };
 
