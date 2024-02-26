@@ -44,7 +44,7 @@ export const sendFileTelegram =
         path: string,
       ) => (path.includes(".gif")
         ? tgm.sendAnimation(uid, { source: createUrlReadStream(path) })
-        : tgm.sendVideo(uid, { source: createUrlReadStream(path) })),
+        : tgm.sendVideo(uid, path)),
     )(uid, path);
 
 const progressMessage =
