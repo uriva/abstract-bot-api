@@ -39,8 +39,10 @@ export const sendFileTelegram =
     retry(
       3000,
       2,
-      (uid: number, path) =>
-        tgm.sendVideo(uid, { source: createUrlReadStream(path) }),
+      (uid: number, path: string) =>
+        (path.includes(".gif") ? tgm.sendAnimation : tgm.sendVideo)(uid, {
+          source: createUrlReadStream(path),
+        }),
     )(uid, path);
 
 const progressMessage =
