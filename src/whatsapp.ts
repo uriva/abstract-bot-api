@@ -87,14 +87,22 @@ type ContactsMessage = CommonProps & {
   }[];
 };
 
-type RequestWelcome = {
-  from: string;
-  id: string;
-  timestamp: string;
+type RequestWelcome = CommonProps & {
   type: "request_welcome";
 };
 
+type ImageMessage = CommonProps & {
+  type: "image";
+  image: {
+    "caption": string;
+    "mime_type": "image/jpeg";
+    "sha256": string;
+    "id": string;
+  };
+};
+
 type InnerMessage =
+  | ImageMessage
   | TextMessage
   | RequestWelcome
   | ContactsMessage
@@ -138,7 +146,10 @@ const messageText = pipe(
       | undefined)?.text.body ??
       (messages.filter(innerMessageTypeEquals("button"))?.[0] as
         | ButtonReply
-        | undefined)?.button.text,
+        | undefined)?.button.text ??
+      (messages.filter(innerMessageTypeEquals("image"))?.[0] as
+        | ImageMessage
+        | undefined)?.image.caption,
 );
 
 const isWelcome = pipe(
