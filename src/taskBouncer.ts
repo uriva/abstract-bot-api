@@ -93,32 +93,31 @@ export type Endpoint = {
   path: string;
 };
 
+export const bouncerHandler = (domain: string, endpoints: Endpoint[]) =>
+  bouncer(
+    domain,
+    (task: Task) =>
+      endpoints.find(({ path, method }) =>
+        path === task.url && method === task.method
+      )?.bounce ?? false,
+    (task: Task) => {
+      for (
+        const { handler } of endpoints.filter(({ path, method }) =>
+          path === task.url && method === task.method
+        )
+      ) return injectUrl(() => task.url)(handler)(task.payload);
+      console.log("no handler for request", task);
+      return Promise.resolve();
+    },
+  );
+
 export const bouncerServer = (
   domain: string,
   port: string,
   endpoints: Endpoint[],
 ) =>
   new Promise<http.Server>((resolve) => {
-    const server = http.createServer(
-      bouncer(
-        domain,
-        (task: Task) =>
-          endpoints.find(({ path, method }) =>
-            path === task.url && method === task.method
-          )?.bounce ?? false,
-        (task: Task) => {
-          for (
-            const { handler } of endpoints.filter(({ path, method }) =>
-              path === task.url && method === task.method
-            )
-          ) {
-            return injectUrl(() => task.url)(handler)(task.payload);
-          }
-          console.log("no handler for request", task);
-          return Promise.resolve();
-        },
-      ),
-    );
+    const server = http.createServer(bouncerHandler(domain, endpoints));
     server.listen(port, () => {
       resolve(server);
     });
