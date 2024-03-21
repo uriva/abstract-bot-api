@@ -10,6 +10,8 @@ export const { inject: injectBotPhone, access: botPhone } = context(():
   | null => null
 );
 
+export const { inject: injectUrl, access: accessUrl } = context(() => "");
+
 export const { inject: injectUserId, access: userId } = context(() => "");
 
 export const { inject: injectReply, access: reply } = context(

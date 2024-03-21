@@ -2,6 +2,7 @@ import http from "node:http";
 import querystring from "node:querystring";
 import url from "node:url";
 import { gamla } from "../deps.ts";
+import { injectUrl } from "./api.ts";
 
 const { coerce } = gamla;
 
@@ -107,11 +108,11 @@ export const bouncerServer = (
           )?.bounce ?? false,
         (task: Task) => {
           for (
-            const endpoint of endpoints.filter(({ path, method }) =>
+            const { handler } of endpoints.filter(({ path, method }) =>
               path === task.url && method === task.method
             )
           ) {
-            return endpoint.handler(task.payload);
+            return injectUrl(() => task.url)(handler)(task.payload);
           }
           console.log("no handler for request", task);
           return Promise.resolve();
