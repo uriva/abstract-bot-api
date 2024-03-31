@@ -1,7 +1,6 @@
 import http from "node:http";
 import querystring from "node:querystring";
 import url from "node:url";
-import formidable from "npm:formidable";
 import { gamla } from "../deps.ts";
 import { injectUrl } from "./api.ts";
 
@@ -45,8 +44,34 @@ const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
     return parseFormData(await getBody(req)) as T;
   }
   if (contentType?.includes("multipart/form-data")) {
-    const [fields, files] = await formidable({}).parse(req);
-    return { fields, files } as T;
+    return new Promise<T>((resolve) => {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+      req.on("end", () => {
+        const [, boundary] = contentType.split("boundary=");
+        const formData: Record<string, unknown> = {};
+        body.split(`--${boundary}`).forEach((part) => {
+          if (part.trim() !== "") {
+            const [header, content] = part.split("\r\n\r\n");
+            const headers = header.split("\r\n");
+            const fieldNameMatch = /name="(.+?)"/.exec(headers[1]);
+            const fieldName = fieldNameMatch ? fieldNameMatch[1] : null;
+            if (fieldName) {
+              const isFile = headers[0].includes("filename");
+              const fieldValue = isFile
+                ? content
+                : content.substring(0, content.length - 2); // Remove trailing \r\n
+              formData[fieldName] = isFile
+                ? { filename: fieldName, data: fieldValue }
+                : fieldValue;
+            }
+          }
+        });
+        resolve(formData as T);
+      });
+    });
   }
   throw new Error(`Unsupported incoming type: ${contentType}`);
 };
