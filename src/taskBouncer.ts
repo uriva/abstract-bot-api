@@ -6,17 +6,43 @@ import { injectUrl } from "./api.ts";
 
 const { coerce } = gamla;
 
-const getJson = <T>(req: http.IncomingMessage): Promise<T> =>
+const getBody = (req: http.IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
     let data = "";
     req.on("data", (chunk) => {
       data += chunk.toString();
     });
     req.on("end", () => {
-      resolve(JSON.parse(data));
+      resolve(data);
     });
     req.on("error", reject);
   });
+
+const parseFormData = (formData: string): any => {
+  const parsedFormData = querystring.parse(formData);
+  const result: { [key: string]: string | string[] } = {};
+  for (const key in parsedFormData) {
+    const value = parsedFormData[key];
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      result[key] = value.map((v) => decodeURIComponent(v));
+    } else {
+      result[key] = decodeURIComponent(value);
+    }
+  }
+  return result;
+};
+
+const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
+  const contentType = req.headers["content-type"];
+  if (contentType?.includes("application/json")) {
+    return JSON.parse(await getBody(req));
+  }
+  if (contentType?.includes("application/x-www-form-urlencoded")) {
+    return parseFormData(await getBody(req));
+  }
+  throw new Error("Unsupported incoming type");
+};
 
 const success = (res: http.ServerResponse, output: string | null) => {
   res.writeHead(200, { "Content-Type": "application/json" });
