@@ -10,6 +10,8 @@ const getBody = (req: http.IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
     let data = "";
     req.on("data", (chunk) => {
+      // 10MB
+      if (data.length > 1e7) throw new Error("request too large");
       data += chunk.toString();
     });
     req.on("end", () => {
@@ -41,7 +43,7 @@ const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
   if (contentType?.includes("application/x-www-form-urlencoded")) {
     return parseFormData(await getBody(req));
   }
-  throw new Error("Unsupported incoming type");
+  throw new Error(`Unsupported incoming type: ${contentType}`);
 };
 
 const success = (res: http.ServerResponse, output: string | null) => {
