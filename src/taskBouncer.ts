@@ -1,6 +1,7 @@
 import http from "node:http";
 import querystring from "node:querystring";
 import url from "node:url";
+import formidable from "npm:formidable";
 import { gamla } from "../deps.ts";
 import { injectUrl } from "./api.ts";
 
@@ -20,7 +21,7 @@ const getBody = (req: http.IncomingMessage): Promise<string> =>
     req.on("error", reject);
   });
 
-const parseFormData = (formData: string): any => {
+const parseFormData = <T>(formData: string): unknown => {
   const parsedFormData = querystring.parse(formData);
   const result: { [key: string]: string | string[] } = {};
   for (const key in parsedFormData) {
@@ -41,7 +42,11 @@ const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
     return JSON.parse(await getBody(req));
   }
   if (contentType?.includes("application/x-www-form-urlencoded")) {
-    return parseFormData(await getBody(req));
+    return parseFormData(await getBody(req)) as T;
+  }
+  if (contentType?.includes("multipart/form-data")) {
+    const [fields, files] = await formidable({}).parse(req);
+    return { fields, files } as T;
   }
   throw new Error(`Unsupported incoming type: ${contentType}`);
 };

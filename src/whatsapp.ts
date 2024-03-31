@@ -8,7 +8,7 @@ import {
 import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { sideLog, anymap, coerce, letIn, pipe, empty } = gamla;
+const { anymap, coerce, letIn, pipe, empty } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
