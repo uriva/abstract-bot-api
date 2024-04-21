@@ -8,7 +8,7 @@ import {
 import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, coerce, letIn, pipe, empty } = gamla;
+const { anymap, coerce, letIn, pipe, empty, map, replace } = gamla;
 
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
@@ -32,6 +32,43 @@ export const sendWhatsappMessage =
       ).then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
       }));
+
+const bodyTextParams = pipe(
+  map(replace(/\n|\t|(\s\s\s\s)/g, " | ")),
+  (texts: string[]) => ({
+    type: "body",
+    parameters: texts.map((text) => ({ type: "text", text })),
+  }),
+);
+
+export const sendWhatsappTemplate =
+  (accessToken: string, fromNumberId: string) =>
+  (
+    to: string,
+    name: string,
+    langCode: string,
+    texts: string[],
+  ) =>
+    fetch(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        recipient_type: "individual",
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name,
+          language: { code: langCode },
+          components: [bodyTextParams(texts)],
+        },
+      }),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(await response.text());
+    });
 
 type CommonProps = { from: string; id: string; timestamp: string };
 
