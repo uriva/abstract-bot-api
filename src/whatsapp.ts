@@ -10,6 +10,12 @@ import { Endpoint } from "./taskBouncer.ts";
 
 const { anymap, coerce, letIn, pipe, empty, map, replace } = gamla;
 
+const convertToWhatsAppFormat = (message: string): string =>
+  message
+    .replace(/<b>(.*?)<\/b>/g, "*$1*")
+    .replace(/<u>(.*?)<\/u>/g, "_$1_")
+    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
+
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
     pipe(convertToWhatsAppFormat, (body: string) =>
@@ -34,7 +40,7 @@ export const sendWhatsappMessage =
       }));
 
 const bodyTextParams = pipe(
-  map(replace(/\n|\t|(\s\s\s\s)/g, " | ")),
+  map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
   (texts: string[]) => ({
     type: "body",
     parameters: texts.map((text) => ({ type: "text", text })),
@@ -211,20 +217,14 @@ export const whatsappWebhookVerificationHandler = (
   method: "GET",
   bounce: false,
   path,
-  handler: (msg: WebhookVerification) => {
-    if (
-      msg["hub.mode"] === "subscribe" &&
-      verifyToken === msg["hub.verify_token"]
-    ) return Promise.resolve(msg["hub.challenge"]);
-    return Promise.resolve();
-  },
+  handler: (msg: WebhookVerification) =>
+    (
+        msg["hub.mode"] === "subscribe" &&
+        verifyToken === msg["hub.verify_token"]
+      )
+      ? Promise.resolve(msg["hub.challenge"])
+      : Promise.resolve(),
 });
-
-const convertToWhatsAppFormat = (message: string): string =>
-  message
-    .replace(/<b>(.*?)<\/b>/g, "*$1*")
-    .replace(/<u>(.*?)<\/u>/g, "_$1_")
-    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
 
 const getText = (msg: WhatsappMessage) =>
   isWelcome(msg)
