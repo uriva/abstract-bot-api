@@ -85,6 +85,7 @@ export const sendWhatsappTemplate =
       },
     }).then(async (response) => {
       if (!response.ok) throw new Error(await response.text());
+      return (await response.json()) as SentMessageResponse;
     });
 
 type CommonProps = { from: string; id: string; timestamp: string };
