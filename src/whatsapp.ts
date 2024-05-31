@@ -16,6 +16,12 @@ const convertToWhatsAppFormat = (message: string): string =>
     .replace(/<u>(.*?)<\/u>/g, "_$1_")
     .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
 
+type SentMessageResponse = {
+  messaging_product: "whatsapp";
+  contacts: [{ input: string; wa_id: string }];
+  messages: [{ id: string }];
+};
+
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
     pipe(convertToWhatsAppFormat, (body: string) =>
@@ -37,6 +43,7 @@ export const sendWhatsappMessage =
         },
       ).then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
+        return (await response.json()) as SentMessageResponse;
       }));
 
 const bodyTextParams = pipe(
@@ -245,7 +252,7 @@ const getContacts = (
 };
 
 export const whatsappBusinessHandler = (
-  accessToken: string,
+  token: string,
   whatsappPath: string,
   doTask: TaskHandler,
 ): Endpoint => ({
@@ -255,10 +262,7 @@ export const whatsappBusinessHandler = (
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(
-        sendWhatsappMessage(
-          accessToken,
-          toNumberId(msg),
-        )(coerce(fromNumber(msg))),
+        sendWhatsappMessage(token, toNumberId(msg))(coerce(fromNumber(msg))),
         (send) =>
           pipe(
             injectBotPhone(() => toNumber(msg))<TaskHandler>,
