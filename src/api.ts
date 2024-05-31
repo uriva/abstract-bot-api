@@ -14,6 +14,12 @@ export const { inject: injectUrl, access: accessUrl } = context(() => "");
 
 export const { inject: injectUserId, access: userId } = context(() => "");
 
+export const { inject: injectMessageId, access: messageId } = context(() => "");
+
+export const { inject: injectReferenceId, access: referenceId } = context(() =>
+  ""
+);
+
 export const { inject: injectReply, access: reply } = context(
   // deno-lint-ignore no-explicit-any
   (msg: string): Promise<any> => {
@@ -79,3 +85,6 @@ export type TaskHandler =
   (incoming: AbstractIncomingMessage) => Promise<any>;
 
 export type UniqueUserId = string;
+
+// deno-lint-ignore no-explicit-any
+export type RetainsType = <F extends (...xs: any[]) => any>(f: F) => F;

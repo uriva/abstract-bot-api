@@ -1,14 +1,18 @@
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
+  injectMessageId,
+  injectReferenceId,
   injectReply,
   injectSpinner,
   injectUserId,
+  RetainsType,
 } from "./api.ts";
 import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, coerce, letIn, pipe, empty, map, replace } = gamla;
+const { anymap, filter, join, coerce, letIn, pipe, empty, map, replace } =
+  gamla;
 
 const convertToWhatsAppFormat = (message: string): string =>
   message
@@ -90,6 +94,11 @@ type TextMessage = CommonProps & {
   text: { "body": string };
 };
 
+type ReactionMessage = CommonProps & {
+  type: "reaction";
+  reaction: { message_id: string; emoji: string };
+};
+
 type ButtonReply = CommonProps & {
   type: "button";
   // deno-lint-ignore no-explicit-any
@@ -97,6 +106,7 @@ type ButtonReply = CommonProps & {
 };
 
 type ContactsMessage = CommonProps & {
+  type: "contacts";
   contacts: {
     "addresses": [{
       "city": string;
@@ -152,11 +162,12 @@ type ImageMessage = CommonProps & {
 };
 
 type InnerMessage =
-  | ImageMessage
-  | TextMessage
-  | RequestWelcome
+  | ButtonReply
   | ContactsMessage
-  | ButtonReply;
+  | ImageMessage
+  | ReactionMessage
+  | RequestWelcome
+  | TextMessage;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -164,6 +175,7 @@ type WhatsappMessage = {
   entry: {
     changes: {
       value: {
+        messaging_product: "whatsapp";
         metadata: { phone_number_id: string; display_phone_number: string };
         contacts?: { profile: { name: string }; wa_id: string }[];
         messages?: InnerMessage[];
@@ -184,22 +196,40 @@ const innerMessageTypeEquals = (y: string) => (x: InnerMessage) =>
 const innerMessages = (message: WhatsappMessage) =>
   message.entry[0].changes[0].value.messages || [];
 
-const fromNumber = pipe(innerMessages, (
-  messages: InnerMessage[],
-) => messages?.[0].from);
+const fromNumber = pipe(
+  innerMessages,
+  (messages: InnerMessage[]) => messages?.[0].from,
+);
+
+const messageId = pipe(
+  innerMessages,
+  filter((x: InnerMessage) => x.type === "reaction"),
+  (msgs: InnerMessage[]) => msgs[0].id,
+);
+
+const referenceId = pipe(
+  innerMessages,
+  // @ts-expect-error typing change here
+  filter((x: InnerMessage) => x.type === "reaction"),
+  map((x: ReactionMessage) => x.reaction.message_id),
+  (x: string[]) => x[0] || "",
+);
 
 const messageText = pipe(
   innerMessages,
-  (messages: InnerMessage[]) =>
-    (messages.filter(innerMessageTypeEquals("text"))?.[0] as
-      | TextMessage
-      | undefined)?.text.body ??
-      (messages.filter(innerMessageTypeEquals("button"))?.[0] as
-        | ButtonReply
-        | undefined)?.button.text ??
-      (messages.filter(innerMessageTypeEquals("image"))?.[0] as
-        | ImageMessage
-        | undefined)?.image.caption,
+  map((msg: InnerMessage): string =>
+    msg.type === "text"
+      ? msg.text.body
+      : msg.type === "button"
+      ? msg.button.text
+      : msg.type === "image"
+      ? msg.image.caption
+      : msg.type === "reaction"
+      ? msg.reaction.emoji
+      : ""
+  ),
+  filter((x: string) => x),
+  join("\n\n"),
 );
 
 const isWelcome = pipe(
@@ -244,7 +274,7 @@ const getContacts = (
   msg: WhatsappMessage,
 ): Record<string, never> | { contact: AbstractIncomingMessage["contact"] } => {
   const contacts = innerMessages(msg).flatMap((x) =>
-    "contacts" in x ? x.contacts : []
+    x.type === "contacts" ? x.contacts : []
   );
   if (empty(contacts)) return {};
   const [{ phones: [{ phone }], name: { formatted_name: name } }] = contacts;
@@ -265,13 +295,13 @@ export const whatsappBusinessHandler = (
         sendWhatsappMessage(token, toNumberId(msg))(coerce(fromNumber(msg))),
         (send) =>
           pipe(
-            injectBotPhone(() => toNumber(msg))<TaskHandler>,
-            injectUserId(() => coerce(fromNumber(msg)))<TaskHandler>,
-            injectSpinner(pipe(send, (_) => () => Promise.resolve()))<
-              TaskHandler
-            >,
-            injectReply(send)<TaskHandler>,
-          ),
+            injectMessageId(() => messageId(msg)),
+            injectBotPhone(() => toNumber(msg)),
+            injectUserId(() => coerce(fromNumber(msg))),
+            injectSpinner(pipe(send, (_) => () => Promise.resolve())),
+            injectReply(send),
+            injectReferenceId(() => referenceId(msg)),
+          ) as RetainsType,
       )(doTask)({ ...getText(msg), ...getContacts(msg) })
       : Promise.resolve(),
 });

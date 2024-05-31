@@ -3,13 +3,14 @@ import querystring from "node:querystring";
 import url from "node:url";
 import { gamla } from "../deps.ts";
 import { injectUrl } from "./api.ts";
+import { Buffer } from "https://deno.land/std@0.140.0/io/buffer.ts";
 
 const { coerce } = gamla;
 
 const getBody = (req: http.IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (chunk) => {
+    req.on("data", (chunk: Buffer) => {
       // 10MB
       if (data.length > 1e7) throw new Error("request too large");
       data += chunk.toString();
@@ -46,7 +47,7 @@ const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
   if (contentType?.includes("multipart/form-data")) {
     return new Promise<T>((resolve) => {
       let body = "";
-      req.on("data", (chunk) => {
+      req.on("data", (chunk: Buffer) => {
         body += chunk;
       });
       req.on("end", () => {
