@@ -18,7 +18,7 @@ const convertToWhatsAppFormat = (message: string): string =>
   message
     .replace(/<b>(.*?)<\/b>/g, "*$1*")
     .replace(/<u>(.*?)<\/u>/g, "_$1_")
-    .replace(/<a href="(.*?)">(.*?)<\/a>/g, "$2 - $1");
+    .replace(/<a href="https?:\/\/(.*?)">(.*?)<\/a>/g, "$2 - $1");
 
 type SentMessageResponse = {
   messaging_product: "whatsapp";
