@@ -1,3 +1,7 @@
+import {
+  juxtCat,
+  sideLog,
+} from "https://deno.land/x/gamla@65.0.0/src/index.ts";
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
@@ -92,7 +96,7 @@ type CommonProps = { from: string; id: string; timestamp: string };
 
 type TextMessage = CommonProps & {
   type: "text";
-  text: { "body": string };
+  text: { body: string };
 };
 
 type ReactionMessage = CommonProps & {
@@ -210,10 +214,13 @@ const messageId = pipe(
 
 const referenceId = pipe(
   innerMessages,
-  // @ts-expect-error typing change here
-  filter((x: InnerMessage) => x.type === "reaction"),
-  map((x: ReactionMessage) => x.reaction.message_id),
-  (x: string[]) => x[0] || "",
+  sideLog<InnerMessage[]>,
+  pipe(
+    // @ts-expect-error typing change here
+    filter(({ type }: InnerMessage) => type === "reaction"),
+    map(({ reaction: { message_id } }: ReactionMessage) => message_id),
+  ),
+  ([x]: string[]) => x || "",
 );
 
 const messageText = pipe(
