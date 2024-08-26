@@ -1,7 +1,3 @@
-import {
-  juxtCat,
-  sideLog,
-} from "https://deno.land/x/gamla@65.0.0/src/index.ts";
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
@@ -15,8 +11,18 @@ import {
 import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import { Endpoint } from "./taskBouncer.ts";
 
-const { anymap, filter, join, coerce, letIn, pipe, empty, map, replace } =
-  gamla;
+const {
+  anymap,
+  filter,
+  join,
+  coerce,
+  letIn,
+  pipe,
+  empty,
+  map,
+  replace,
+  juxtCat,
+} = gamla;
 
 const convertToWhatsAppFormat = (message: string): string =>
   message
@@ -52,7 +58,7 @@ export const sendWhatsappMessage =
       ).then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
         return (await response.json()) as SentMessageResponse;
-      }));
+      }).then(({ messages: [{ id }] }) => id));
 
 const bodyTextParams = pipe(
   map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
@@ -219,8 +225,7 @@ const referenceId = pipe(
     pipe(
       // @ts-expect-error typing change here
       filter(({ type, context }: InnerMessage) => type === "text" && context),
-      // @ts-expect-error filter causes a typing change
-      map(({ context: { id } }: TextMessage) => id),
+      map((x: TextMessage) => x.context?.id || ""),
     ),
     pipe(
       // @ts-expect-error typing change here

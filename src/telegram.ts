@@ -60,7 +60,7 @@ const telegramProgressBar =
     const bar = progressMessage(text, 20);
     let lastValue = 0;
     const { message_id } = await tgm.sendMessage(uid, bar(lastValue));
-    return throttle(1, (progress: number) => {
+    return throttle(1)((progress: number) => {
       if (bar(progress) === bar(lastValue)) return Promise.resolve();
       lastValue = progress;
       return tgm
@@ -115,13 +115,13 @@ export const sendTelegramMessage = (token: string) =>
       }).then((r) =>
         r.json()
       )),
-    ({ ok, error_code, description }) => {
-      if (error_code === 403) {
-        return;
+    (response: grammy.ApiResponse<grammy.Message>) => {
+      if (response.ok) {
+        return response.result.message_id.toString();
       }
-      if (!ok) {
-        throw new Error(`Telegram error: ${error_code} ${description}`);
-      }
+      throw new Error(
+        `Telegram error: ${response.error_code} ${response.description}`,
+      );
     },
   );
 

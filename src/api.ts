@@ -1,6 +1,4 @@
-import { gamla } from "../deps.ts";
-
-const { context } = gamla;
+import { context } from "https://deno.land/x/context_inject@0.0.3/src/index.ts";
 
 export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
   Infinity
@@ -19,12 +17,10 @@ export const { inject: injectMessageId, access: messageId } = context(() => "");
 export const { inject: injectReferenceId, access: referenceId } = context(() =>
   ""
 );
-
 export const { inject: injectReply, access: reply } = context(
-  // deno-lint-ignore no-explicit-any
-  (msg: string): Promise<any> => {
+  (msg: string): Promise<string> => {
     console.log("Reply:", msg);
-    return Promise.resolve();
+    return Promise.resolve(crypto.randomUUID());
   },
 );
 

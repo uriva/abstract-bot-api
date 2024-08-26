@@ -14,7 +14,7 @@ import {
 
 const { complement, equals, nonempty, pipe } = gamla;
 type Messsage = {
-  key?: number;
+  key: string;
   text?: string;
   percentage?: number;
   spinner?: boolean;
@@ -27,6 +27,8 @@ type Manager = {
   buffered: Record<string, Messsage[]>;
 };
 
+const makeKey = () => crypto.randomUUID();
+
 const inject = <T extends TaskHandler>(
   send: (x: Messsage) => Promise<void>,
   userId: string,
@@ -35,18 +37,22 @@ const inject = <T extends TaskHandler>(
     injectFileLimitMB(() => Infinity)<T>,
     injectUserId(() => userId)<T>,
     injectProgressBar((text: string) => {
-      const key = Date.now();
+      const key = makeKey();
       return Promise.resolve((percentage: number) =>
         send({ key, text, percentage })
       );
     })<T>,
     injectSpinner(async (text: string) => {
-      const key = Date.now();
+      const key = makeKey();
       await send({ key, text, spinner: true });
       return () => send({ key, text, spinner: false });
     })<T>,
-    injectReply(pipe((text: string) => ({ text }), send))<T>,
-    injectSendFile(pipe((url: string) => ({ url }), send))<T>,
+    injectReply(async (text: string) => {
+      const key = makeKey();
+      await send({ text, key });
+      return key;
+    })<T>,
+    injectSendFile(pipe((url: string) => ({ url, key: makeKey() }), send))<T>,
   );
 
 const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
