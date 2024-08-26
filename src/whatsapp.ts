@@ -97,6 +97,7 @@ type CommonProps = { from: string; id: string; timestamp: string };
 type TextMessage = CommonProps & {
   type: "text";
   text: { body: string };
+  context?: { from: string; id: string };
 };
 
 type ReactionMessage = CommonProps & {
@@ -214,11 +215,18 @@ const messageId = pipe(
 
 const referenceId = pipe(
   innerMessages,
-  sideLog<InnerMessage[]>,
-  pipe(
-    // @ts-expect-error typing change here
-    filter(({ type }: InnerMessage) => type === "reaction"),
-    map(({ reaction: { message_id } }: ReactionMessage) => message_id),
+  juxtCat(
+    pipe(
+      // @ts-expect-error typing change here
+      filter(({ type, context }: InnerMessage) => type === "text" && context),
+      // @ts-expect-error filter causes a typing change
+      map(({ context: { id } }: TextMessage) => id),
+    ),
+    pipe(
+      // @ts-expect-error typing change here
+      filter(({ type }: InnerMessage) => type === "reaction"),
+      map(({ reaction: { message_id } }: ReactionMessage) => message_id),
+    ),
   ),
   ([x]: string[]) => x || "",
 );
