@@ -77,7 +77,7 @@ export const sendWhatsappTemplate =
     langCode: string,
     texts: string[],
   ) =>
-    fetch(`https://graph.facebook.com/v19.0/${fromNumberId}/messages`, {
+    fetch(`https://graph.facebook.com/v20.0/${fromNumberId}/messages`, {
       method: "POST",
       body: JSON.stringify({
         recipient_type: "individual",
