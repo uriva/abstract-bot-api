@@ -41,7 +41,7 @@ export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
     pipe(convertToWhatsAppFormat, (body: string) =>
       fetch(
-        `https://graph.facebook.com/v19.0/${fromNumberId}/messages`,
+        `https://graph.facebook.com/v20.0/${fromNumberId}/messages`,
         {
           method: "POST",
           body: JSON.stringify({
