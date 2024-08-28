@@ -10,6 +10,17 @@ export const { inject: injectBotPhone, access: botPhone } = context(():
 
 export const { inject: injectUrl, access: accessUrl } = context(() => "");
 
+type Medium =
+  | "whatsapp"
+  | "green-api"
+  | "telegram"
+  | "websocket"
+  | "no-medium";
+
+export const { inject: injectMedium, access: medium } = context((): Medium =>
+  "no-medium"
+);
+
 export const { inject: injectUserId, access: userId } = context(() => "");
 
 export const { inject: injectMessageId, access: messageId } = context(() => "");

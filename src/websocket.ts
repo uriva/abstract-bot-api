@@ -3,6 +3,7 @@ import { WebSocket, WebSocketServer } from "npm:ws";
 import { gamla } from "../deps.ts";
 import {
   injectFileLimitMB,
+  injectMedium,
   injectProgressBar,
   injectReply,
   injectSendFile,
@@ -34,6 +35,7 @@ const inject = <T extends TaskHandler>(
   userId: string,
 ) =>
   pipe(
+    injectMedium(() => "websocket")<T>,
     injectFileLimitMB(() => Infinity)<T>,
     injectUserId(() => userId)<T>,
     injectProgressBar((text: string) => {

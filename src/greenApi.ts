@@ -7,6 +7,7 @@ const { pipe } = gamla;
 
 import {
   injectFileLimitMB,
+  injectMedium,
   injectReply,
   injectSendFile,
   injectUserId,
@@ -67,6 +68,7 @@ const communications = <T extends TaskHandler>(
   userId: string,
 ) =>
   pipe(
+    injectMedium(() => "green-api")<T>,
     injectFileLimitMB(() => 50)<T>,
     injectUserId(() => userId)<T>,
     injectSendFile((url: string) =>

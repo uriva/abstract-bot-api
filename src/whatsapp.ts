@@ -1,6 +1,7 @@
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
+  injectMedium,
   injectMessageId,
   injectReferenceId,
   injectReply,
@@ -316,6 +317,7 @@ export const whatsappBusinessHandler = (
         sendWhatsappMessage(token, toNumberId(msg))(coerce(fromNumber(msg))),
         (send) =>
           pipe(
+            injectMedium(() => "whatsapp"),
             injectMessageId(() => messageId(msg)),
             injectBotPhone(() => toNumber(msg)),
             injectUserId(() => coerce(fromNumber(msg))),

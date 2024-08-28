@@ -9,6 +9,7 @@ import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { get } from "node:https";
 import {
   injectFileLimitMB,
+  injectMedium,
   injectProgressBar,
   injectReply,
   injectSendFile,
@@ -214,6 +215,7 @@ export const makeTelegramHandler = (
             },
             ({ id, tgm }) =>
               pipe(
+                injectMedium(() => "telegram")<TaskHandler>,
                 injectUserId(() => id.toString())<TaskHandler>,
                 injectFileLimitMB(() => 50)<TaskHandler>,
                 injectSendFile(sendFileTelegram(tgm, id))<TaskHandler>,
