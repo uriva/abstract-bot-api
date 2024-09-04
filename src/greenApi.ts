@@ -3,9 +3,10 @@ import { gamla } from "../deps.ts";
 // @ts-expect-error no types
 import greenApi from "npm:@green-api/whatsapp-api-client@0.4.0-0";
 
-const { pipe } = gamla;
+const { pipe, replace } = gamla;
 
 import {
+  injectBotPhone,
   injectFileLimitMB,
   injectMedium,
   injectMessageId,
@@ -51,6 +52,12 @@ type QuotedMessage = {
 };
 
 type GreenApiMessage = {
+  typeWebhook: "incomingMessageReceived";
+  instanceData: {
+    idInstance: number;
+    wid: string;
+    typeInstance: "whatsapp";
+  };
   idMessage: string;
   timestamp: number;
   senderData: SenderData;
@@ -67,9 +74,11 @@ type GreenApiMessage = {
     };
 };
 
+const rewriteNumber = replace("@c.us", "");
+
 const messageSender = ({
   senderData: { sender },
-}: GreenApiMessage) => sender;
+}: GreenApiMessage) => rewriteNumber(sender);
 
 const greenApiReferenceId = (x: GreenApiMessage) =>
   x.messageData.quotedMessage?.stanzaId;
@@ -86,12 +95,14 @@ export const registerWebhook = (
 
 const communications = <T extends TaskHandler>(
   api: ReturnType<typeof greenApi.restAPI>,
+  botPhone: string,
   msgId: string,
   referenceId: string,
   userId: string,
   send: (txt: string) => Promise<string>,
 ) =>
   pipe(
+    injectBotPhone(() => botPhone)<T>,
     injectMedium(() => "green-api")<T>,
     injectMessageId(() => msgId)<T>,
     injectFileLimitMB(() => 50)<T>,
@@ -115,6 +126,7 @@ export const greenApiHandler = (
   handler: (msg: GreenApiMessage) =>
     communications(
       greenApi.restAPI(credentials),
+      rewriteNumber(msg.instanceData.wid),
       msg.idMessage,
       greenApiReferenceId(msg) ?? "",
       messageSender(msg),
