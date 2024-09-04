@@ -174,8 +174,8 @@ export const bouncerServer = (
   domain: string,
   port: string,
   endpoints: Endpoint[],
-) =>
-  new Promise<http.Server>((resolve) => {
+): Promise<http.Server> =>
+  new Promise((resolve) => {
     const server = http.createServer(bouncerHandler(domain, endpoints));
     server.listen(port, () => {
       resolve(server);

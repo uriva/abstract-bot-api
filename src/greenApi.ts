@@ -1,5 +1,6 @@
 import { gamla } from "../deps.ts";
 
+// @ts-expect-error no types
 import greenApi from "npm:@green-api/whatsapp-api-client@0.4.0-0";
 
 const { pipe } = gamla;
