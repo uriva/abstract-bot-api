@@ -17,6 +17,7 @@ import {
   TaskHandler,
 } from "./api.ts";
 import { Endpoint } from "./index.ts";
+import { convertToWhatsAppFormat } from "./whatsapp.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
 
@@ -117,11 +118,15 @@ export const greenApiHandler = (
       msg.idMessage,
       greenApiReferenceId(msg) ?? "",
       messageSender(msg),
-      (txt: string) =>
-        greenApi.restAPI(credentials).message.sendMessage(
-          messageSender(msg),
-          null,
-          txt,
-        ).then(({ idMessage }: MessageResponse) => idMessage),
+      pipe(
+        convertToWhatsAppFormat,
+        (txt: string) =>
+          greenApi.restAPI(credentials).message.sendMessage(
+            messageSender(msg),
+            null,
+            txt,
+          ),
+        ({ idMessage }: MessageResponse) => idMessage,
+      ),
     )(doTask)({ text: messageText(msg) }),
 });

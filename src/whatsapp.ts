@@ -25,7 +25,7 @@ const {
   juxtCat,
 } = gamla;
 
-const convertToWhatsAppFormat = (message: string): string =>
+export const convertToWhatsAppFormat = (message: string): string =>
   message
     .replace(/<b>(.*?)<\/b>/g, "*$1*")
     .replace(/<u>(.*?)<\/u>/g, "_$1_")
