@@ -11,23 +11,27 @@ This library provides a unified API over the following ways to chat:
 
 The abstract api methods:
 
-`reply` - a simple reply that gets text
+`reply: (text: string) => Promise<string>` - a simple reply that gets text and
+returns the sent message id.
 
-`messageId` - the incoming message id
+`messageId: () => string` - the incoming message id
 
-`referenceId` - if the message quoted another message
+`referenceId: () => string` - if the message quoted another message
 
-`medium` - which service was used
+`medium: () => string` - which service was used ('whatsapp', 'green-api' etc')
 
-`userId` - the user id who sent the current message
+`userId: () => string` - the user id who sent the current message
 
-`withSpinner` - wrap a function with logic that provides a waiting animation for
-users
+`withSpinner: (text: string, f: Function) => Function` - wraps an async function
+with logic that provides a waiting animation for users
 
-`progressBar` - wrap a function with logic that provides a loading bar animation
+`progressBar: (text: string) => Promise<(percentage: number) => Promise<void>>` -
+get a way to send progress updates that appear in a loading bar animation
 
-The cool thing is you can call these methods from anywhere in your code, so you
-don't need to pass through things to deeply nested functions.
+The nice thing is you can call these methods from anywhere in your code, so you
+don't need to pass through things to deeply nested functions. The library
+understands by the call stack the context the messages should go to (see example
+below).
 
 ## example
 
