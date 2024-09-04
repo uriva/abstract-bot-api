@@ -7,6 +7,16 @@ This library provides a unified API over the following ways to chat:
 1. green-api (unofficial whatsapp api)
 1. websocket (for web page chat) 1
 
+## Installation
+
+node.js:
+
+`npm i abstract-bot-api`
+
+deno:
+
+`import abc from "https://deno.land/x/abstract_bot_api/src/index.ts";`
+
 ## API
 
 The abstract api methods:
