@@ -1,6 +1,17 @@
 # abstract-bot-api
 
-This library provides a unified API over the following ways to chat:
+This library solves two problems:
+
+1. You want to switch between chat providers and not change your code.
+1. You have deep stacked code that needs to access the chat api (e.g. to send a
+   loading message from some internal method), and you don't want to carry
+   around credentials as globals (because maybe you have two bots running in the
+   same server).
+
+The first problem is solved by making a simple common api for all the services,
+while the second is solved using https://github.com/uriva/context-inject.
+
+This library provides a unified API over:
 
 1. telegram
 1. whatsapp
