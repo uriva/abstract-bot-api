@@ -63,6 +63,11 @@ type GreenApiMessage = {
   senderData: SenderData;
   messageData:
     | {
+      typeMessage: "quotedMessage";
+      extendedTextMessageData: ExtendedTextMessageData;
+      quotedMessage: QuotedMessage;
+    }
+    | {
       typeMessage: "textMessage";
       textMessageData: { textMessage: string };
       quotedMessage?: QuotedMessage;
@@ -86,7 +91,8 @@ const greenApiReferenceId = (x: GreenApiMessage) =>
   x.messageData.quotedMessage?.stanzaId;
 
 const messageText = ({ messageData }: GreenApiMessage) =>
-  messageData.typeMessage === "extendedTextMessage"
+  messageData.typeMessage === "extendedTextMessage" ||
+    messageData.typeMessage === "quotedMessage"
     ? messageData.extendedTextMessageData.text
     : messageData.textMessageData.textMessage;
 
