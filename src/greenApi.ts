@@ -74,7 +74,9 @@ type GreenApiMessage = {
     };
 };
 
-const rewriteNumber = replace("@c.us", "");
+const phoneSuffix = "@c.us";
+
+const rewriteNumber = replace(phoneSuffix, "");
 
 const messageSender = ({
   senderData: { sender },
@@ -134,7 +136,7 @@ export const greenApiHandler = (
         convertToWhatsAppFormat,
         (txt: string) =>
           greenApi.restAPI(credentials).message.sendMessage(
-            messageSender(msg),
+            messageSender(msg) + phoneSuffix,
             null,
             txt,
           ),
