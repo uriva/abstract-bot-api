@@ -117,6 +117,19 @@ const communications = <T extends TaskHandler>(
     injectReply(send)<T>,
   );
 
+export const sendGreenApiMessage =
+  (secrets: GreenCredentials) => (to: string) =>
+    pipe(
+      convertToWhatsAppFormat,
+      (txt: string) =>
+        greenApi.restAPI(secrets).message.sendMessage(
+          to + phoneSuffix,
+          null,
+          txt,
+        ),
+      ({ idMessage }: MessageResponse) => idMessage,
+    );
+
 export const greenApiHandler = (
   credentials: GreenCredentials,
   path: string,
@@ -132,15 +145,6 @@ export const greenApiHandler = (
       msg.idMessage,
       greenApiReferenceId(msg) ?? "",
       messageSender(msg),
-      pipe(
-        convertToWhatsAppFormat,
-        (txt: string) =>
-          greenApi.restAPI(credentials).message.sendMessage(
-            messageSender(msg) + phoneSuffix,
-            null,
-            txt,
-          ),
-        ({ idMessage }: MessageResponse) => idMessage,
-      ),
+      sendGreenApiMessage(credentials)(messageSender(msg)),
     )(doTask)({ text: messageText(msg) }),
 });
