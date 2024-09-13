@@ -38,8 +38,9 @@ const inject = <T extends TaskHandler>(
     injectMedium(() => "websocket")<T>,
     injectFileLimitMB(() => Infinity)<T>,
     injectUserId(() => userId)<T>,
-    injectProgressBar((text: string) => {
+    injectProgressBar(async (text: string) => {
       const key = makeKey();
+      await send({ key, text, percentage: 0 });
       return Promise.resolve((percentage: number) =>
         send({ key, text, percentage })
       );
