@@ -1,4 +1,4 @@
-import { build, emptyDir } from "https://deno.land/x/dnt@0.40.0/mod.ts";
+import { build, emptyDir } from "jsr:@deno/dnt";
 import { coerce } from "https://deno.land/x/gamla@89.0.0/src/debug.ts";
 
 const outDir = "./dist";
