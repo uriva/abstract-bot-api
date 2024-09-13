@@ -1,4 +1,5 @@
 import { build, emptyDir } from "https://deno.land/x/dnt@0.40.0/mod.ts";
+import { coerce } from "https://deno.land/x/gamla@89.0.0/src/debug.ts";
 
 const outDir = "./dist";
 
@@ -10,7 +11,7 @@ await build({
   shims: { deno: true },
   package: {
     name: "abstract-bot-api",
-    version: Deno.args[0],
+    version: coerce(Deno.args[0]),
     description: "",
     license: "MIT",
     repository: {
