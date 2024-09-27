@@ -1,7 +1,7 @@
 import { context } from "https://deno.land/x/context_inject@0.0.3/src/index.ts";
 
 export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
-  Infinity
+  Number.POSITIVE_INFINITY
 );
 export const { inject: injectBotPhone, access: botPhone } = context(():
   | string

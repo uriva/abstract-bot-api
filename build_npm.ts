@@ -26,7 +26,7 @@ await build({
   },
   importMap: "deno.json",
   postBuild() {
-    Deno.copyFileSync("./LICENSE", outDir + "/LICENSE");
-    Deno.copyFileSync("./README.md", outDir + "/README.md");
+    Deno.copyFileSync("./LICENSE", `${outDir}/LICENSE`);
+    Deno.copyFileSync("./README.md", `${outDir}/README.md`);
   },
 });

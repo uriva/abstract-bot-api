@@ -15,9 +15,9 @@ import {
   injectSendFile,
   injectSpinner,
   injectUserId,
-  TaskHandler,
+  type TaskHandler,
 } from "./api.ts";
-import { Endpoint } from "./index.ts";
+import type { Endpoint } from "./index.ts";
 import { convertToWhatsAppFormat } from "./whatsapp.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };

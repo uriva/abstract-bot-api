@@ -7,10 +7,10 @@ import {
   injectReply,
   injectSpinner,
   injectUserId,
-  RetainsType,
+  type RetainsType,
 } from "./api.ts";
-import { AbstractIncomingMessage, TaskHandler } from "./index.ts";
-import { Endpoint } from "./taskBouncer.ts";
+import type { AbstractIncomingMessage, TaskHandler } from "./index.ts";
+import type { Endpoint } from "./taskBouncer.ts";
 
 const {
   anymap,

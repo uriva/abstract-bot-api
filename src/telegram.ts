@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
-import { Telegraf, Telegram } from "npm:telegraf";
+import { Telegraf, type Telegram } from "npm:telegraf";
 
-import { gamla, grammy } from "../deps.ts";
+import { gamla, type grammy } from "../deps.ts";
 
 const { coerce, letIn, max, pipe, prop, retry, sleep, throttle } = gamla;
 
@@ -15,9 +15,9 @@ import {
   injectSendFile,
   injectSpinner,
   injectUserId,
-  TaskHandler,
+  type TaskHandler,
 } from "./api.ts";
-import { AbstractIncomingMessage, Endpoint } from "./index.ts";
+import type { AbstractIncomingMessage, Endpoint } from "./index.ts";
 
 const createUrlReadStream = (url: string): Readable => {
   const readable = new Readable({ read() {} });
@@ -210,7 +210,7 @@ export const makeTelegramHandler = (
           letIn(
             {
               id: message.from.id,
-              tgm: new Telegraf(telegramToken, { handlerTimeout: Infinity })
+              tgm: new Telegraf(telegramToken, { handlerTimeout: Number.POSITIVE_INFINITY })
                 .telegram,
             },
             ({ id, tgm }) =>

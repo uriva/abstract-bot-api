@@ -1,5 +1,5 @@
-import http from "node:http";
-import { WebSocket, WebSocketServer } from "npm:ws";
+import type http from "node:http";
+import { type WebSocket, WebSocketServer } from "npm:ws";
 import { gamla } from "../deps.ts";
 import {
   injectFileLimitMB,
@@ -9,8 +9,8 @@ import {
   injectSendFile,
   injectSpinner,
   injectUserId,
-  TaskHandler,
-  UniqueUserId,
+  type TaskHandler,
+  type UniqueUserId,
 } from "./api.ts";
 
 const { complement, equals, nonempty, pipe } = gamla;
@@ -36,7 +36,7 @@ const inject = <T extends TaskHandler>(
 ) =>
   pipe(
     injectMedium(() => "websocket")<T>,
-    injectFileLimitMB(() => Infinity)<T>,
+    injectFileLimitMB(() => Number.POSITIVE_INFINITY)<T>,
     injectUserId(() => userId)<T>,
     injectProgressBar(async (text: string) => {
       const key = makeKey();

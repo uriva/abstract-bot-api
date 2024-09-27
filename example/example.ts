@@ -1,5 +1,5 @@
 import {
-  AbstractIncomingMessage,
+  type AbstractIncomingMessage,
   bouncerServer,
   makeTelegramHandler,
   setTelegramWebhook,

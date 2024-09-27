@@ -3,7 +3,7 @@ import querystring from "node:querystring";
 import url from "node:url";
 import { gamla } from "../deps.ts";
 import { injectUrl } from "./api.ts";
-import { Buffer } from "https://deno.land/std@0.140.0/io/buffer.ts";
+import type { Buffer } from "https://deno.land/std@0.140.0/io/buffer.ts";
 
 const { coerce } = gamla;
 
