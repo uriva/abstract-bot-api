@@ -3,12 +3,16 @@ import { context } from "https://deno.land/x/context_inject@0.0.3/src/index.ts";
 export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
   Number.POSITIVE_INFINITY
 );
-export const { inject: injectBotPhone, access: botPhone } = context(():
-  | string
-  | null => null
+
+export const { inject: injectBotPhone, access: botPhone } = context(
+  (): string => {
+    throw new Error("no phone in context");
+  },
 );
 
-export const { inject: injectUrl, access: accessUrl } = context(() => "");
+export const { inject: injectUrl, access: accessUrl } = context((): string => {
+  throw new Error("no URL in context");
+});
 
 type Medium =
   | "whatsapp"
@@ -21,13 +25,22 @@ export const { inject: injectMedium, access: medium } = context((): Medium =>
   "no-medium"
 );
 
-export const { inject: injectUserId, access: userId } = context(() => "");
+export const { inject: injectUserId, access: userId } = context((): string => {
+  throw new Error("no user ID in context");
+});
 
-export const { inject: injectMessageId, access: messageId } = context(() => "");
-
-export const { inject: injectReferenceId, access: referenceId } = context(() =>
-  ""
+export const { inject: injectMessageId, access: messageId } = context(
+  (): string => {
+    throw new Error("no message ID in context");
+  },
 );
+
+export const { inject: injectReferenceId, access: referenceId } = context(
+  (): string => {
+    throw new Error("no reference ID in context");
+  },
+);
+
 export const { inject: injectReply, access: reply } = context(
   (msg: string): Promise<string> => {
     console.log("Reply:", msg);
