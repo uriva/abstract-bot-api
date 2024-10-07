@@ -3,7 +3,7 @@ import { gamla } from "../deps.ts";
 // @ts-expect-error no types
 import greenApi from "npm:@green-api/whatsapp-api-client@0.4.0-0";
 
-const { pipe, replace } = gamla;
+const { pipe, replace, identity } = gamla;
 
 import {
   injectBotPhone,
@@ -105,7 +105,7 @@ const communications = <T extends TaskHandler>(
   api: ReturnType<typeof greenApi.restAPI>,
   botPhone: string,
   msgId: string,
-  referenceId: string,
+  referenceId: string | undefined,
   userId: string,
   send: (txt: string) => Promise<string>,
 ) =>
@@ -118,7 +118,7 @@ const communications = <T extends TaskHandler>(
     injectSendFile((url: string) =>
       api.file.sendFileByUrl(userId, null, url, "video.mp4", "")
     )<T>,
-    injectReferenceId(() => referenceId)<T>,
+    referenceId ? injectReferenceId(() => referenceId)<T> : identity,
     injectSpinner(pipe(send, (_) => () => Promise.resolve()))<T>,
     injectReply(send)<T>,
   );
@@ -149,7 +149,7 @@ export const greenApiHandler = (
       greenApi.restAPI(credentials),
       rewriteNumber(msg.instanceData.wid),
       msg.idMessage,
-      greenApiReferenceId(msg) ?? "",
+      greenApiReferenceId(msg),
       messageSender(msg),
       sendGreenApiMessage(credentials)(messageSender(msg)),
     )(doTask)({ text: messageText(msg) }),

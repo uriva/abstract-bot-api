@@ -17,6 +17,7 @@ const {
   filter,
   join,
   coerce,
+  identity,
   letIn,
   pipe,
   empty,
@@ -323,7 +324,9 @@ export const whatsappBusinessHandler = (
             injectUserId(() => coerce(fromNumber(msg))),
             injectSpinner(pipe(send, (_) => () => Promise.resolve())),
             injectReply(send),
-            injectReferenceId(() => referenceId(msg)),
+            referenceId(msg)
+              ? injectReferenceId(() => referenceId(msg))
+              : identity,
           ) as RetainsType,
       )(doTask)({ ...getText(msg), ...getContacts(msg) })
       : Promise.resolve(),
