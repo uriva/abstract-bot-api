@@ -1,7 +1,6 @@
 {
   "deno.lint": true,
   "deno.enable": true,
-  "deno.unstable": true,
   "search.exclude": {
     "deno.lock": true,
     "dist/**": true
