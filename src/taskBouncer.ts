@@ -120,7 +120,8 @@ const bouncer = (
         url: coerce(url.parse(coerce(req.url), true).pathname),
         payload,
       };
-      if (shouldDefer(task)) { // Don't await on this, so telegram won't retry when task takes a long time to finish.
+      if (shouldDefer(task)) {
+        // Don't await on this, so telegram won't retry when task takes a long time to finish.
         addTask(domain, task)
           .catch(
             (e) => {
