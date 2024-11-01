@@ -274,9 +274,8 @@ export const whatsappWebhookVerificationHandler = (
   verifyToken: string,
   path: string,
 ): Endpoint => ({
-  method: "GET",
+  predicate: ({ url, method }) => url === path && method === "POST",
   bounce: false,
-  path,
   handler: (msg: WebhookVerification) =>
     (
         msg["hub.mode"] === "subscribe" &&
@@ -306,12 +305,11 @@ const getContacts = (
 
 export const whatsappBusinessHandler = (
   token: string,
-  whatsappPath: string,
+  path: string,
   doTask: TaskHandler,
 ): Endpoint => ({
   bounce: true,
-  method: "POST",
-  path: whatsappPath,
+  predicate: ({ url, method }) => url === path && method === "POST",
   handler: (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(

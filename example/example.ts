@@ -22,7 +22,7 @@ const whatsappPath = "/whatsapp-url-suffix";
 const handleMessage = async (task: AbstractIncomingMessage) => {
   console.log("got task", task);
   await withSpinner("waiting needlessly", sleep)(5000);
-  return reply("hi there i got " + JSON.stringify(task));
+  return reply(`hi there i got ${JSON.stringify(task)}`);
 };
 
 const url = coerce(Deno.env.get("URL"));

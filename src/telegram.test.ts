@@ -20,6 +20,6 @@ TEL;CELL;PREF:+${alicePhone}
 TEL;HOME:+97236746666
 END:VCARD`,
     }),
-    "+" + alicePhone,
+    `+${alicePhone}`,
   );
 });

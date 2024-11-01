@@ -12,8 +12,7 @@ export const makeDatabaseHandler = (
     authenticate: (token: string, userId: string) => Promise<boolean>,
 ): Endpoint => ({
     bounce: true,
-    method: "POST",
-    path,
+    predicate: ({ url, method }) => url === path && method === "POST",
     handler: async ({ from, text, token }: ClientRequest) => {
         if (!await authenticate(token, from)) return;
         await storer({ from, to: botName, key: makeKey(), text, time: now() });

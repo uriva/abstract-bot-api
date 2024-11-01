@@ -201,8 +201,7 @@ export const makeTelegramHandler = (
 ): Endpoint => (
   {
     bounce: true,
-    method: "POST",
-    path,
+    predicate: ({ url, method }) => url === path && method === "POST",
     handler: ({ message }: grammy.Update) =>
       message?.from && message.text
         ? pipe(

@@ -154,25 +154,21 @@ type Handler = (payload: Task["payload"]) => Promise<any>;
 export type Endpoint = {
   bounce: boolean;
   handler: Handler;
-  method: "POST" | "GET";
-  path: string;
+  predicate: (task: Task) => boolean;
 };
 
 export const bouncerHandler = (domain: string, endpoints: Endpoint[]) =>
   bouncer(
     domain,
     (task: Task) =>
-      endpoints.find(({ path, method }) =>
-        path === task.url && method === task.method
-      )?.bounce ?? false,
+      endpoints.find(({ predicate }) => predicate(task))?.bounce ?? false,
     (task: Task) => {
       for (
-        const { handler } of endpoints.filter(({ path, method }) =>
-          path === task.url && method === task.method
+        const { handler } of endpoints.filter(({ predicate }) =>
+          predicate(task)
         )
       ) return injectUrl(() => task.url)(handler)(task.payload);
-      console.log("no handler for request", task);
-      return Promise.resolve();
+      throw new Error("No handler for request");
     },
   );
 

@@ -142,8 +142,7 @@ export const greenApiHandler = (
   doTask: TaskHandler,
 ): Endpoint => ({
   bounce: true,
-  method: "POST",
-  path,
+  predicate: ({ url, method }) => url === path && method === "POST",
   handler: (msg: GreenApiMessage) =>
     communications(
       greenApi.restAPI(credentials),
