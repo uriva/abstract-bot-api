@@ -78,10 +78,12 @@ const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
 };
 
 const success = (res: http.ServerResponse, output: string | null) => {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  res.setHeader("Access-Control-Allow-Origin", "*"); // Allow all domains
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE"); // Allowed methods
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type"); // Allowed headers
+  res.writeHead(200, {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
   res.end(output ?? JSON.stringify({ message: "Data received successfully" }));
 };
 
