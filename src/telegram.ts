@@ -127,7 +127,7 @@ export const sendTelegramMessage = (token: string) =>
   );
 
 export const setTelegramWebhook = (token: string, url: string) =>
-  fetch(tokenToTelegramURL(token) + `setWebhook?url=${url}`);
+  fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
 
 const fileIdToContentBase64 =
   (token: string) => async (fileId: string): Promise<string> => {
@@ -158,7 +158,7 @@ const sharedOwnPhone = (
 ) => (user_id === ownId) ? phone_number : undefined;
 
 const contactToFullName = ({ first_name, last_name }: grammy.Contact) =>
-  first_name + (last_name ? " " + last_name : "");
+  first_name + (last_name ? ` ${last_name}` : "");
 
 export const getBestPhoneFromContactShared = ({
   phone_number,
@@ -210,7 +210,9 @@ export const makeTelegramHandler = (
           letIn(
             {
               id: message.from.id,
-              tgm: new Telegraf(telegramToken, { handlerTimeout: Number.POSITIVE_INFINITY })
+              tgm: new Telegraf(telegramToken, {
+                handlerTimeout: Number.POSITIVE_INFINITY,
+              })
                 .telegram,
             },
             ({ id, tgm }) =>

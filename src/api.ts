@@ -16,6 +16,7 @@ export const { inject: injectUrl, access: accessUrl } = context((): string => {
 
 type Medium =
   | "whatsapp"
+  | "instantdb"
   | "green-api"
   | "telegram"
   | "websocket"

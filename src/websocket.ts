@@ -28,9 +28,11 @@ type Manager = {
   buffered: Record<string, WeboscketMessage[]>;
 };
 
-const makeKey = () => crypto.randomUUID();
+export const makeKey = () => crypto.randomUUID();
 
-const inject = <T extends TaskHandler>(
+export const now = () => Date.now();
+
+export const websocketInject = <T extends TaskHandler>(
   send: (x: WeboscketMessage) => Promise<void>,
   userId: string,
 ) =>
@@ -61,7 +63,7 @@ const inject = <T extends TaskHandler>(
 const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
   new Promise<void>((resolve) =>
     socket.send(
-      JSON.stringify({ timestamp: Date.now(), ...msg }),
+      JSON.stringify({ timestamp: now(), ...msg }),
       () => resolve(),
     )
   );
@@ -129,7 +131,7 @@ export const setupWebsocketOnServer = (
       const { uniqueId, humanReadableId } = loginResult;
       addSocket(ws, uniqueId);
       if (!text) return;
-      inject(sendToUser(uniqueId), humanReadableId)(doTask)({ text });
+      websocketInject(sendToUser(uniqueId), humanReadableId)(doTask)({ text });
     });
     ws.on("close", () => {
       removeSocket(ws);
