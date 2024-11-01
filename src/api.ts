@@ -76,20 +76,14 @@ export const { inject: injectSpinner, access: spinner } = context(
 export const withSpinner = <
   // deno-lint-ignore no-explicit-any
   F extends (...params: any[]) => Promise<any>,
->(
-  text: string,
-  f: F,
-): F =>
+>(text: string, f: F): F =>
 // @ts-expect-error ts cannot infer
 async (...xs: Parameters<F>) => {
   const stopSpinning = await spinner(text);
   try {
-    const result = await f(...xs);
+    return await f(...xs);
+  } finally {
     await stopSpinning();
-    return result;
-  } catch (e) {
-    await stopSpinning();
-    throw e;
   }
 };
 
