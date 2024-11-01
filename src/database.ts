@@ -16,9 +16,9 @@ export const makeDatabaseHandler = (
     path,
     handler: async ({ from, text, token }: ClientRequest) => {
         if (!await authenticate(token, from)) return;
-        await storer({ from, key: makeKey(), text, time: now() });
+        await storer({ from, to: botName, key: makeKey(), text, time: now() });
         return websocketInject(
-            (x) => storer({ ...x, time: now(), from: botName }),
+            (x) => storer({ ...x, time: now(), from: botName, to: from }),
             from,
         )(doTask)({ text });
     },
