@@ -14,7 +14,7 @@ import {
 } from "./api.ts";
 
 const { complement, equals, nonempty, pipe } = gamla;
-type Messsage = {
+type WeboscketMessage = {
   key: string;
   text?: string;
   percentage?: number;
@@ -25,13 +25,13 @@ type Messsage = {
 
 type Manager = {
   mapping: Record<string, WebSocket[]>;
-  buffered: Record<string, Messsage[]>;
+  buffered: Record<string, WeboscketMessage[]>;
 };
 
 const makeKey = () => crypto.randomUUID();
 
 const inject = <T extends TaskHandler>(
-  send: (x: Messsage) => Promise<void>,
+  send: (x: WeboscketMessage) => Promise<void>,
   userId: string,
 ) =>
   pipe(
@@ -66,13 +66,14 @@ const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
     )
   );
 
-const sendToUser = (manager: Manager) => (userId: string) => (msg: Messsage) =>
-  Promise.any((manager.mapping[userId] || []).map(jsonOnSocket(msg))).catch(
-    () => storeInBufffer(manager)(userId, msg),
-  );
+const sendToUser =
+  (manager: Manager) => (userId: string) => (msg: WeboscketMessage) =>
+    Promise.any((manager.mapping[userId] || []).map(jsonOnSocket(msg))).catch(
+      () => storeInBufffer(manager)(userId, msg),
+    );
 
 const storeInBufffer =
-  (manager: Manager) => (userId: string, msg: Messsage) => {
+  (manager: Manager) => (userId: string, msg: WeboscketMessage) => {
     manager.buffered[userId] = [...(manager.buffered[userId] || []), msg];
   };
 
