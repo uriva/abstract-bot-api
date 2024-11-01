@@ -4,7 +4,7 @@ import { makeKey, now, websocketInject } from "./websocket.ts";
 
 type ClientRequest = { from: string; text: string };
 
-export const makeInstantDbHandler = (
+export const makeDatabaseHandler = (
     storer: <T>(value: T) => Promise<void>,
     doTask: TaskHandler,
     path: string,
