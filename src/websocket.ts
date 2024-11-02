@@ -28,7 +28,7 @@ type Manager = {
   buffered: Record<string, WeboscketMessage[]>;
 };
 
-export const makeKey = () => crypto.randomUUID();
+const makeKey = () => crypto.randomUUID();
 
 export const now = () => Date.now();
 

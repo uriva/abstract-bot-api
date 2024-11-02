@@ -1,6 +1,6 @@
 import type { TaskHandler } from "./api.ts";
 import type { Endpoint } from "./taskBouncer.ts";
-import { makeKey, now, websocketInject } from "./websocket.ts";
+import { now, websocketInject } from "./websocket.ts";
 
 type ClientRequest = { from: string; text: string; token: string };
 
@@ -14,11 +14,11 @@ export const makeDatabaseHandler = (
     bounce: true,
     predicate: ({ url, method }) => url === path && method === "POST",
     handler: async ({ from, text, token }: ClientRequest) => {
-        if (!await authenticate(token, from)) return;
-        await storer({ from, to: botName, key: makeKey(), text, time: now() });
-        return websocketInject(
-            (x) => storer({ ...x, time: now(), from: botName, to: from }),
-            from,
-        )(doTask)({ text });
+        if (await authenticate(token, from)) {
+            return websocketInject(
+                (x) => storer({ ...x, time: now(), from: botName, to: from }),
+                from,
+            )(doTask)({ text });
+        }
     },
 });
