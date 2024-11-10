@@ -161,6 +161,7 @@ const addTask = (deferralUrl: string) => <T>(task: Task<T>) =>
   });
 
 const selectAndRunEndpoint =
+  // deno-lint-ignore no-explicit-any
   (addTask: <T>(task: Task<T>) => void, endpoints: Endpoint<any>[]) =>
   (req: http.IncomingMessage, res: http.ServerResponse) => {
     const address = reqToTaskAddress(req);
