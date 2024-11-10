@@ -206,7 +206,8 @@ export const staticFileEndpoint = (
   text: string,
   contentType: string,
   triggerUrl: string,
-): Endpoint<never> => ({
+  // deno-lint-ignore no-explicit-any
+): Endpoint<any> => ({
   predicate: ({ url, method }) => method === "GET" && url === triggerUrl,
   bounce: false,
   handler: (_, res) => {
