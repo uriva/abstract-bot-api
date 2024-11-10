@@ -10,7 +10,7 @@ export const makeDatabaseHandler = (
     path: string,
     botName: string,
     authenticate: (token: string, userId: string) => Promise<boolean>,
-): Endpoint => ({
+): Endpoint<ClientRequest> => ({
     bounce: true,
     predicate: ({ url, method }) => url === path && method === "POST",
     handler: async ({ from, text, token }: ClientRequest) => {

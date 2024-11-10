@@ -10,10 +10,6 @@ export const { inject: injectBotPhone, access: botPhone } = context(
   },
 );
 
-export const { inject: injectUrl, access: accessUrl } = context((): string => {
-  throw new Error("no URL in context");
-});
-
 type Medium =
   | "whatsapp"
   | "instantdb"

@@ -198,7 +198,7 @@ export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
   doTask: TaskHandler,
-): Endpoint => (
+): Endpoint<grammy.Update> => (
   {
     bounce: true,
     predicate: ({ url, method }) => url === path && method === "POST",

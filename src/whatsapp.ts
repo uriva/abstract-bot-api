@@ -273,16 +273,20 @@ const toNumber = (
 export const whatsappWebhookVerificationHandler = (
   verifyToken: string,
   path: string,
-): Endpoint => ({
+): Endpoint<WebhookVerification> => ({
   predicate: ({ url, method }) => url === path && method === "POST",
   bounce: false,
-  handler: (msg: WebhookVerification) =>
-    (
-        msg["hub.mode"] === "subscribe" &&
-        verifyToken === msg["hub.verify_token"]
-      )
-      ? Promise.resolve(msg["hub.challenge"])
-      : Promise.resolve(),
+  handler: (msg, res) => {
+    if (
+      msg["hub.mode"] === "subscribe" && verifyToken === msg["hub.verify_token"]
+    ) {
+      res.writeHead(200, msg["hub.challenge"]);
+      res.end();
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  },
 });
 
 const getText = (msg: WhatsappMessage) =>
@@ -307,7 +311,7 @@ export const whatsappBusinessHandler = (
   token: string,
   path: string,
   doTask: TaskHandler,
-): Endpoint => ({
+): Endpoint<WhatsappMessage> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: (msg: WhatsappMessage) =>
