@@ -201,3 +201,16 @@ export const bouncerServer = (
       resolve(server);
     });
   });
+
+export const staticFileEndpoint = (
+  text: string,
+  contentType: string,
+  triggerUrl: string,
+): Endpoint<never> => ({
+  predicate: ({ url, method }) => method === "GET" && url === triggerUrl,
+  bounce: false,
+  handler: (_, res) => {
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(text);
+  },
+});
