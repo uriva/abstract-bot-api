@@ -168,7 +168,7 @@ const selectAndRunEndpoint =
       const endpoint of endpoints.filter(({ predicate }) => predicate(address))
     ) {
       runEndpoint(
-        adderss,
+        address,
         (payload) => addTask({ address, payload }),
         endpoint,
       )(
