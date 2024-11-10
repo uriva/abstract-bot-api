@@ -88,35 +88,38 @@ const reqToPayload = <T>(req: http.IncomingMessage): Promise<T> =>
 
 type TaskAddress = { method: string; url: string };
 
-const runEndpoint =
-  <T>(addTask: (payload: T) => void, { bounce, handler }: Endpoint<T>) =>
-  async (req: http.IncomingMessage, res: http.ServerResponse) => {
-    try {
-      const payload: T = await reqToPayload<T>(req);
-      if (bounce) {
-        addTask(payload);
-        res.writeHead(200);
-        res.end();
-      } else {
-        handler(payload, res);
-      }
-    } catch (e) {
-      console.error(e);
-      res.writeHead(500);
+const runEndpoint = <T>(
+  address: TaskAddress,
+  addTask: (payload: T) => void,
+  { bounce, handler }: Endpoint<T>,
+) =>
+async (req: http.IncomingMessage, res: http.ServerResponse) => {
+  try {
+    const payload: T = await reqToPayload<T>(req);
+    if (bounce) {
+      addTask(payload);
+      res.writeHead(200);
       res.end();
+    } else {
+      handler(payload, res, address);
     }
-  };
+  } catch (e) {
+    console.error(e);
+    res.writeHead(500);
+    res.end();
+  }
+};
 
 type Task<T> = { payload: T; address: TaskAddress };
 
 export type Endpoint<T> = {
-  bounce: false;
-  handler: (task: T, res: http.ServerResponse) => void;
   predicate: (task: TaskAddress) => boolean;
+  bounce: false;
+  handler: (task: T, res: http.ServerResponse, address: TaskAddress) => void;
 } | {
+  predicate: (address: TaskAddress) => boolean;
   bounce: true;
   handler: (payload: T) => Promise<void>;
-  predicate: (address: TaskAddress) => boolean;
 };
 
 const deferredHandlerEndpoint = <T>(eps: Endpoint<T>[]): Endpoint<Task<T>> => ({
@@ -164,7 +167,11 @@ const selectAndRunEndpoint =
     for (
       const endpoint of endpoints.filter(({ predicate }) => predicate(address))
     ) {
-      runEndpoint((payload) => addTask({ address, payload }), endpoint)(
+      runEndpoint(
+        adderss,
+        (payload) => addTask({ address, payload }),
+        endpoint,
+      )(
         req,
         res,
       );
