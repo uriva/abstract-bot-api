@@ -274,7 +274,7 @@ export const whatsappWebhookVerificationHandler = (
   verifyToken: string,
   path: string,
 ): Endpoint<WebhookVerification> => ({
-  predicate: ({ url, method }) => url === path && method === "POST",
+  predicate: ({ url, method }) => url === path && method === "GET",
   bounce: false,
   handler: (msg, res) => {
     if (
