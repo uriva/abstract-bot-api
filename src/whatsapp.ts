@@ -280,8 +280,8 @@ export const whatsappWebhookVerificationHandler = (
     if (
       msg["hub.mode"] === "subscribe" && verifyToken === msg["hub.verify_token"]
     ) {
-      res.writeHead(200, msg["hub.challenge"]);
-      res.end();
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(msg["hub.challenge"]);
     } else {
       res.writeHead(404);
       res.end();
