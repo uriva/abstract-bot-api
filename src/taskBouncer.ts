@@ -88,24 +88,35 @@ const reqToPayload = <T>(req: http.IncomingMessage): Promise<T> =>
 
 type TaskAddress = { method: string; url: string };
 
+const corsHeaders = {
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
+};
+
 const runEndpoint = <T>(
   address: TaskAddress,
   addTask: (payload: T) => void,
   { bounce, handler }: Endpoint<T>,
 ) =>
 async (req: http.IncomingMessage, res: http.ServerResponse) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, undefined, corsHeaders);
+    res.end();
+    return;
+  }
   try {
     const payload: T = await reqToPayload<T>(req);
     if (bounce) {
       addTask(payload);
-      res.writeHead(200);
+      res.writeHead(200, undefined, corsHeaders);
       res.end();
     } else {
       handler(payload, res, address);
     }
   } catch (e) {
     console.error(e);
-    res.writeHead(500);
+    res.writeHead(500, corsHeaders);
     res.end();
   }
 };
