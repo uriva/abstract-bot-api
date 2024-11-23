@@ -2,15 +2,24 @@ import type { Server } from "node:http";
 import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { bouncerServer, staticFileEndpoint } from "./taskBouncer.ts";
 
+let currentPort = 1234;
+const getDistinctPortNumber = () => {
+  return (currentPort++).toString();
+};
+
 Deno.test("init", async () => {
-  const server = await bouncerServer("http://localhost", "1234", []);
+  const server = await bouncerServer(
+    "http://localhost",
+    getDistinctPortNumber(),
+    [],
+  );
   await closeServer(server);
 });
 
 Deno.test("static endpoint", async () => {
   const fileText = "<div>hello</div>";
   const host = "http://localhost";
-  const port = "1234";
+  const port = getDistinctPortNumber();
   const server = await bouncerServer(host, port, [
     staticFileEndpoint(fileText, "text/html", "/hello"),
   ]);
@@ -40,7 +49,7 @@ const promiseWithResolver = () => {
 
 Deno.test("cors", async () => {
   const host = "http://localhost";
-  const port = "1234";
+  const port = getDistinctPortNumber();
   const url = `${host}:${port}`;
   const { promise: handlerRan, resolve: onHandlerRan } = promiseWithResolver();
   const server = await bouncerServer(url, port, [{
@@ -62,7 +71,7 @@ Deno.test("cors", async () => {
 
 Deno.test("cors preflight", async () => {
   const host = "http://localhost";
-  const port = "1234";
+  const port = getDistinctPortNumber();
   const server = await bouncerServer(host, port, [{
     bounce: true,
     predicate: () => true,
