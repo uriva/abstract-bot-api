@@ -100,24 +100,13 @@ const runEndpoint = <T>(
   { bounce, handler }: Endpoint<T>,
 ) =>
 async (req: http.IncomingMessage, res: http.ServerResponse) => {
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, undefined, corsHeaders);
+  const payload: T = await reqToPayload<T>(req);
+  if (bounce) {
+    addTask(payload);
+    res.writeHead(200, corsHeaders);
     res.end();
-    return;
-  }
-  try {
-    const payload: T = await reqToPayload<T>(req);
-    if (bounce) {
-      addTask(payload);
-      res.writeHead(200, undefined, corsHeaders);
-      res.end();
-    } else {
-      handler(payload, res, address);
-    }
-  } catch (e) {
-    console.error(e);
-    res.writeHead(500, corsHeaders);
-    res.end();
+  } else {
+    handler(payload, res, address);
   }
 };
 
@@ -164,34 +153,39 @@ const reqToTaskAddress = (req: http.IncomingMessage): TaskAddress => ({
   url: coerce(url.parse(coerce(req.url), true).pathname),
 });
 
-const addTask = (deferralUrl: string) => <T>(task: Task<T>) =>
-  fetch(deferralUrl + pathForDeferred, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(task),
-  });
-
-const selectAndRunEndpoint =
-  // deno-lint-ignore no-explicit-any
-  (addTask: <T>(task: Task<T>) => void, endpoints: Endpoint<any>[]) =>
-  (req: http.IncomingMessage, res: http.ServerResponse) => {
-    const address = reqToTaskAddress(req);
-    for (
-      const endpoint of endpoints.filter(({ predicate }) => predicate(address))
-    ) {
-      runEndpoint(
-        address,
-        (payload) => addTask({ address, payload }),
-        endpoint,
-      )(
-        req,
-        res,
-      );
-      return;
-    }
-    res.writeHead(404);
-    res.end();
+const addTask =
+  (domain: string) => (address: TaskAddress) => <T>(payload: T) => {
+    fetch(domain + pathForDeferred, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address, payload } satisfies Task<T>),
+    })
+      // For test purposes, we must consume the body.
+      .then((x) => x.body?.cancel())
+      .catch((e) => {
+        console.error("Bouncer server failed to submit task", e);
+      });
   };
+
+const selectAndRunEndpoint = (
+  addTask: <T>(task: TaskAddress) => (t: T) => void,
+  // deno-lint-ignore no-explicit-any
+  endpoints: Endpoint<any>[],
+) =>
+(req: http.IncomingMessage, res: http.ServerResponse) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, corsHeaders);
+    res.end();
+    return;
+  }
+  const address = reqToTaskAddress(req);
+  for (const ep of endpoints.filter(({ predicate }) => predicate(address))) {
+    runEndpoint(address, addTask(address), ep)(req, res);
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+};
 
 export const bouncerServer = (
   domain: string,
@@ -201,13 +195,10 @@ export const bouncerServer = (
 ): Promise<http.Server> =>
   new Promise((resolve) => {
     const server = http.createServer(
-      selectAndRunEndpoint((x) =>
-        addTask(domain)(x).catch((e) => {
-          console.error("Failed processing deferred task", e);
-        }), [
-        deferredHandlerEndpoint(endpoints),
-        ...endpoints,
-      ]),
+      selectAndRunEndpoint(
+        addTask(domain),
+        [deferredHandlerEndpoint(endpoints), ...endpoints],
+      ),
     );
     server.listen(port, () => {
       resolve(server);
