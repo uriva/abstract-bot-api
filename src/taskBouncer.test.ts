@@ -69,18 +69,23 @@ Deno.test("cors preflight", async () => {
     predicate: () => true,
     handler: () => Promise.resolve(),
   }]);
-  const { status, headers } = await fetch(`${host}:${port}/hello`, {
-    method: "OPTIONS",
-    headers: {
-      "Origin": "http://example.com",
-      "Access-Control-Request-Method": "POST",
-    },
-  });
-  assertEquals(status, 204);
-  assertEquals(headers.get("Access-Control-Allow-Origin"), "*");
-  assertEquals(
-    headers.get("Access-Control-Allow-Methods"),
-    "GET, POST, PUT, DELETE, OPTIONS",
-  );
+  try {
+    const { status, headers } = await fetch(`${host}:${port}/hello`, {
+      method: "OPTIONS",
+      headers: {
+        "Origin": "http://example.com",
+        "Access-Control-Request-Method": "POST",
+      },
+    });
+    assertEquals(status, 204);
+    assertEquals(headers.get("Access-Control-Allow-Origin"), "*");
+    assertEquals(
+      headers.get("Access-Control-Allow-Methods"),
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
+  } catch (e) {
+    console.error("failed", e);
+    throw new Error();
+  }
   await closeServer(server);
 });
