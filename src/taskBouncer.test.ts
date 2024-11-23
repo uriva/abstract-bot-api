@@ -1,11 +1,10 @@
-import axios from "npm:axios";
 import type { Server } from "node:http";
 import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { bouncerServer, staticFileEndpoint } from "./taskBouncer.ts";
 
 Deno.test("init", async () => {
   const server = await bouncerServer("http://localhost", "1234", []);
-  server.close();
+  await closeServer(server);
 });
 
 Deno.test("static endpoint", async () => {
@@ -52,18 +51,18 @@ Deno.test("cors", async () => {
       return Promise.resolve();
     },
   }]);
-  // We are using axois here because it closes the connection, otherwise the test hangs.
-  const response = await axios.get(`${url}/hello`, {
+  const response = await fetch(`${url}/hello`, {
     headers: { "Origin": "http://example.com" },
   });
-  assertEquals(response.headers["access-control-allow-origin"], "*");
+  assertEquals(response.headers.get("access-control-allow-origin"), "*");
+  await response.body?.cancel();
   await handlerRan;
   await closeServer(server);
 });
 
 Deno.test("cors preflight", async () => {
   const host = "http://localhost";
-  const port = "2222";
+  const port = "1234";
   const server = await bouncerServer(host, port, [{
     bounce: true,
     predicate: () => true,
