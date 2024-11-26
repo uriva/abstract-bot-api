@@ -1,11 +1,11 @@
 import type { TaskHandler } from "./api.ts";
 import type { Endpoint } from "./taskBouncer.ts";
-import { now, websocketInject } from "./websocket.ts";
+import { type ChatEvent, now, websocketInject } from "./websocket.ts";
 
 type ClientRequest = { from: string; text: string; token: string };
 
 export const makeDatabaseHandler = (
-  storer: <T>(value: T) => Promise<void>,
+  storer: (value: ChatEvent) => Promise<void>,
   doTask: TaskHandler,
   path: string,
   botName: string,

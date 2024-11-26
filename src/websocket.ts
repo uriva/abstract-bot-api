@@ -14,7 +14,8 @@ import {
 } from "./api.ts";
 
 const { complement, equals, nonempty, pipe } = gamla;
-type WeboscketMessage = {
+
+type ChatEventPreSending = {
   key: string;
   text?: string;
   percentage?: number;
@@ -23,9 +24,15 @@ type WeboscketMessage = {
   urlText?: string;
 };
 
+export type ChatEvent = ChatEventPreSending & {
+  time: number;
+  from: string;
+  to: string;
+};
+
 type Manager = {
   mapping: Record<string, WebSocket[]>;
-  buffered: Record<string, WeboscketMessage[]>;
+  buffered: Record<string, ChatEventPreSending[]>;
 };
 
 const makeKey = () => crypto.randomUUID();
@@ -33,7 +40,7 @@ const makeKey = () => crypto.randomUUID();
 export const now = () => Date.now();
 
 export const websocketInject = <T extends TaskHandler>(
-  send: (x: WeboscketMessage) => Promise<void>,
+  send: (x: ChatEventPreSending) => Promise<void>,
   userId: string,
 ) =>
   pipe(
@@ -69,13 +76,13 @@ const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
   );
 
 const sendToUser =
-  (manager: Manager) => (userId: string) => (msg: WeboscketMessage) =>
+  (manager: Manager) => (userId: string) => (msg: ChatEventPreSending) =>
     Promise.any((manager.mapping[userId] || []).map(jsonOnSocket(msg))).catch(
       () => storeInBufffer(manager)(userId, msg),
     );
 
 const storeInBufffer =
-  (manager: Manager) => (userId: string, msg: WeboscketMessage) => {
+  (manager: Manager) => (userId: string, msg: ChatEventPreSending) => {
     manager.buffered[userId] = [...(manager.buffered[userId] || []), msg];
   };
 
