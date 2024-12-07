@@ -1,3 +1,4 @@
+import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
@@ -289,23 +290,38 @@ export const whatsappWebhookVerificationHandler = (
   },
 });
 
-const getMediaUrlFromId =
-  (accessToken: string) => (id: string): Promise<string> =>
-    fetch(`https://graph.facebook.com/v21.0/${id}`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-    }).then((response) => response.json() as Promise<{ id: string }>).then((
-      { id },
-    ) => id);
+type MediaGetResponse = {
+  messaging_product: "whatsapp";
+  url: string;
+  mime_type: string;
+  sha256: string;
+  file_size: string;
+  id: string;
+};
+
+const getMediaFromId = (accessToken: string) => (id: string): Promise<string> =>
+  fetch(`https://graph.facebook.com/v21.0/${id}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  })
+    .then((response) => response.json() as Promise<MediaGetResponse>)
+    .then(({ url }) =>
+      fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    )
+    .then((response) => (response.arrayBuffer()))
+    .then(encodeBase64);
 
 const getText = (accessToken: string) => async (msg: WhatsappMessage) => ({
   text: isWelcome(msg) ? "/start" : messageText(msg),
   ...(msg.entry[0].changes[0].value?.messages?.[0].type === "image"
     ? {
-      image: await getMediaUrlFromId(accessToken)(
+      image: await getMediaFromId(accessToken)(
         msg.entry[0].changes[0].value.messages[0].image.id,
       ),
     }
