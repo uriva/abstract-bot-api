@@ -289,12 +289,26 @@ export const whatsappWebhookVerificationHandler = (
   },
 });
 
-const getText = (msg: WhatsappMessage) =>
-  isWelcome(msg)
-    ? { text: "/start" }
-    : messageText(msg)
-    ? { text: messageText(msg) }
-    : {};
+const getMediaUrlFromId =
+  (accessToken: string) => (id: string): Promise<string> =>
+    fetch(`https://graph.facebook.com/v21.0/${id}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }).then((response) => response.json()).then(({ id }) => id as string);
+
+const getText = (accessToken: string) => async (msg: WhatsappMessage) => ({
+  text: isWelcome(msg) ? "/start" : messageText(msg),
+  ...(msg.entry[0].changes[0].value?.messages?.[0].type === "image"
+    ? {
+      image: await getMediaUrlFromId(accessToken)(
+        msg.entry[0].changes[0].value.messages[0].image.id,
+      ),
+    }
+    : {}),
+});
 
 const getContacts = (
   msg: WhatsappMessage,
@@ -314,7 +328,7 @@ export const whatsappBusinessHandler = (
 ): Endpoint<WhatsappMessage> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
-  handler: (msg: WhatsappMessage) =>
+  handler: async (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(
         sendWhatsappMessage(token, toNumberId(msg))(coerce(fromNumber(msg))),
@@ -330,6 +344,6 @@ export const whatsappBusinessHandler = (
               ? injectReferenceId(() => referenceId(msg))
               : identity,
           ) as RetainsType,
-      )(doTask)({ ...getText(msg), ...getContacts(msg) })
+      )(doTask)({ ...await getText(token)(msg), ...getContacts(msg) })
       : Promise.resolve(),
 });
