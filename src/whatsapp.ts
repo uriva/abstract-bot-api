@@ -297,7 +297,9 @@ const getMediaUrlFromId =
         "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-    }).then((response) => response.json()).then(({ id }) => id as string);
+    }).then((response) => response.json() as Promise<{ id: string }>).then((
+      { id },
+    ) => id);
 
 const getText = (accessToken: string) => async (msg: WhatsappMessage) => ({
   text: isWelcome(msg) ? "/start" : messageText(msg),
