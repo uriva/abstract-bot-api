@@ -71,7 +71,8 @@ const textParams = (type: ParamType) =>
       type,
       parameters: texts.map((text) => ({
         type: "text",
-        text: truncate(60)(text),
+        // Max length is 60, but it also includes the parameter name or something.
+        text: truncate(57)(text),
       })),
     }),
   );
