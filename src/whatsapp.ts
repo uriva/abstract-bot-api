@@ -19,6 +19,7 @@ const {
   join,
   coerce,
   identity,
+  truncate,
   letIn,
   pipe,
   empty,
