@@ -80,7 +80,7 @@ export const sendWhatsappTemplate =
     to: string,
     name: string,
     langCode: string,
-    params: Record<ParamType, string[]>,
+    params: Partial<Record<ParamType, string[]>>,
   ) =>
     fetch(`https://graph.facebook.com/v20.0/${fromNumberId}/messages`, {
       method: "POST",
