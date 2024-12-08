@@ -68,7 +68,10 @@ const textParams = (type: ParamType) =>
     map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
     (texts: string[]) => ({
       type,
-      parameters: texts.map((text) => ({ type: "text", text })),
+      parameters: texts.map((text) => ({
+        type: "text",
+        text: truncate(60)(text),
+      })),
     }),
   );
 
