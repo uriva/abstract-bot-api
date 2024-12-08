@@ -63,13 +63,16 @@ export const sendWhatsappMessage =
         return (await response.json()) as SentMessageResponse;
       }).then(({ messages: [{ id }] }) => id));
 
-const bodyTextParams = pipe(
-  map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
-  (texts: string[]) => ({
-    type: "body",
-    parameters: texts.map((text) => ({ type: "text", text })),
-  }),
-);
+const textParams = (type: ParamType) =>
+  pipe(
+    map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
+    (texts: string[]) => ({
+      type,
+      parameters: texts.map((text) => ({ type: "text", text })),
+    }),
+  );
+
+type ParamType = "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
 
 export const sendWhatsappTemplate =
   (accessToken: string, fromNumberId: string) =>
@@ -77,7 +80,7 @@ export const sendWhatsappTemplate =
     to: string,
     name: string,
     langCode: string,
-    texts: string[],
+    params: Record<ParamType, string[]>,
   ) =>
     fetch(`https://graph.facebook.com/v20.0/${fromNumberId}/messages`, {
       method: "POST",
@@ -89,7 +92,9 @@ export const sendWhatsappTemplate =
         template: {
           name,
           language: { code: langCode },
-          components: [bodyTextParams(texts)],
+          components: Object.entries(params).map((
+            x,
+          ) => textParams(x[0] as ParamType)(x[1])),
         },
       }),
       headers: {
