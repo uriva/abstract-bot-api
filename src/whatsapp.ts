@@ -64,20 +64,17 @@ export const sendWhatsappMessage =
         return (await response.json()) as SentMessageResponse;
       }).then(({ messages: [{ id }] }) => id));
 
-const textParams = (type: ParamType) =>
-  pipe(
-    map(pipe(replace(/\n|\t|(\s\s\s\s)/g, " | "), convertToWhatsAppFormat)),
-    (texts: string[]) => ({
-      type,
-      parameters: texts.map((text) => ({
-        type: "text",
-        // Max length is 60, but it also includes the parameter name or something.
-        text: truncate(57)(text),
-      })),
-    }),
-  );
+const templateTextParamConstraints = pipe(
+  replace(/\n|\t|(\s\s\s\s)/g, " | "),
+  convertToWhatsAppFormat,
+  truncate(60),
+);
 
 type ParamType = "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
+type TemplateTextParam = { type: "text"; text: string };
+type TemplateImageParam = { type: "image"; image: { link: string } };
+type TemplateParam = TemplateTextParam | TemplateImageParam;
+type Component = { type: ParamType; parameters: TemplateParam[] };
 
 export const sendWhatsappTemplate =
   (accessToken: string, fromNumberId: string) =>
@@ -85,7 +82,7 @@ export const sendWhatsappTemplate =
     to: string,
     name: string,
     langCode: string,
-    params: Partial<Record<ParamType, string[]>>,
+    components: Component[],
   ) =>
     fetch(`https://graph.facebook.com/v20.0/${fromNumberId}/messages`, {
       method: "POST",
@@ -97,9 +94,17 @@ export const sendWhatsappTemplate =
         template: {
           name,
           language: { code: langCode },
-          components: Object.entries(params).map((
-            x,
-          ) => textParams(x[0] as ParamType)(x[1])),
+          components: components.map((c) => ({
+            ...c,
+            parameters: c.parameters.map((p) =>
+              p.type === "text"
+                ? ({
+                  type: "text",
+                  text: templateTextParamConstraints(p.text),
+                })
+                : p
+            ),
+          })),
         },
       }),
       headers: {
