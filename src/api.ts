@@ -75,11 +75,19 @@ export const withSpinner = <
 >(text: string, f: F): F =>
 // @ts-expect-error ts cannot infer
 async (...xs: Parameters<F>) => {
-  const stopSpinning = await spinner(text);
+  let stopSpinning: (() => Promise<void>) | undefined;
+  const spinnerTimeout = setTimeout(async () => {
+    stopSpinning = await spinner(text);
+  }, 5000);
+
   try {
-    return await f(...xs);
+    const result = await f(...xs);
+    clearTimeout(spinnerTimeout);
+    return result;
   } finally {
-    await stopSpinning();
+    if (stopSpinning) {
+      await stopSpinning();
+    }
   }
 };
 
