@@ -81,13 +81,10 @@ async (...xs: Parameters<F>) => {
   }, 5000);
 
   try {
-    const result = await f(...xs);
-    clearTimeout(spinnerTimeout);
-    return result;
+    return await f(...xs);
   } finally {
-    if (stopSpinning) {
-      await stopSpinning();
-    }
+    clearTimeout(spinnerTimeout);
+    if (stopSpinning) await stopSpinning();
   }
 };
 
