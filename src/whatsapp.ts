@@ -8,7 +8,6 @@ import {
   injectReply,
   injectSpinner,
   injectUserId,
-  type RetainsType,
 } from "./api.ts";
 import type { AbstractIncomingMessage, TaskHandler } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
@@ -241,13 +240,13 @@ const referenceId = pipe(
   innerMessages,
   juxtCat(
     pipe(
-      // @ts-expect-error typing change here
-      filter(({ type, context }: InnerMessage) => type === "text" && context),
+      filter((msg: InnerMessage): msg is TextMessage =>
+        msg.type === "text" && !!msg.context
+      ),
       map((x: TextMessage) => x.context?.id || ""),
     ),
     pipe(
-      // @ts-expect-error typing change here
-      filter(({ type }: InnerMessage) => type === "reaction"),
+      filter((msg: InnerMessage) => msg.type === "reaction"),
       map(({ reaction: { message_id } }: ReactionMessage) => message_id),
     ),
   ),
@@ -376,7 +375,7 @@ export const whatsappBusinessHandler = (
             referenceId(msg)
               ? injectReferenceId(() => referenceId(msg))
               : identity,
-          ) as RetainsType,
+          ),
       )(doTask)({ ...await getText(token)(msg), ...getContacts(msg) })
       : Promise.resolve(),
 });

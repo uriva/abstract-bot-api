@@ -102,5 +102,3 @@ export type TaskHandler =
 
 export type UniqueUserId = string;
 
-// deno-lint-ignore no-explicit-any
-export type RetainsType = <F extends (...xs: any[]) => any>(f: F) => F;
