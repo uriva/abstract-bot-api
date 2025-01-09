@@ -123,6 +123,14 @@ type TextMessage = CommonProps & {
   context?: { from: string; id: string };
 };
 
+type VideoMessage = CommonProps & {
+  type: "video";
+  caption: string;
+  sha256: string;
+  id: string;
+  mime_type: string;
+};
+
 type ReactionMessage = CommonProps & {
   type: "reaction";
   reaction: { message_id: string; emoji: string };
@@ -196,7 +204,8 @@ type InnerMessage =
   | ImageMessage
   | ReactionMessage
   | RequestWelcome
-  | TextMessage;
+  | TextMessage
+  | VideoMessage;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 type WhatsappMessage = {
@@ -264,6 +273,8 @@ const messageText = pipe(
       ? msg.image.caption
       : msg.type === "reaction"
       ? msg.reaction.emoji
+      : msg.type === "video"
+      ? msg.caption
       : ""
   ),
   filter((x: string) => x),
