@@ -275,7 +275,7 @@ const messageText = pipe(
       : msg.type === "reaction"
       ? msg.reaction.emoji
       : msg.type === "video"
-      ? msg.caption
+      ? msg.video.caption
       : ""
   ),
   filter((x: string) => x),
