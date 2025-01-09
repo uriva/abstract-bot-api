@@ -123,14 +123,6 @@ type TextMessage = CommonProps & {
   context?: { from: string; id: string };
 };
 
-type VideoMessage = CommonProps & {
-  type: "video";
-  caption: string;
-  sha256: string;
-  id: string;
-  mime_type: string;
-};
-
 type ReactionMessage = CommonProps & {
   type: "reaction";
   reaction: { message_id: string; emoji: string };
@@ -191,10 +183,19 @@ type RequestWelcome = CommonProps & {
 type ImageMessage = CommonProps & {
   type: "image";
   image: {
-    "caption": string;
-    "mime_type": "image/jpeg";
-    "sha256": string;
-    "id": string;
+    caption: string;
+    id: string;
+    mime_type: "image/jpeg";
+    sha256: string;
+  };
+};
+type VideoMessage = CommonProps & {
+  type: "video";
+  video: {
+    caption: string;
+    id: string;
+    mime_type: string;
+    sha256: string;
   };
 };
 
