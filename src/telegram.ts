@@ -221,6 +221,7 @@ export const makeTelegramHandler = (
                 injectFileLimitMB(() => 50)<TaskHandler>,
                 injectSendFile(sendFileTelegram(tgm, id))<TaskHandler>,
                 injectReply((t: string) =>
+                  // @ts-ignore error in node but not in deno
                   sendTelegramMessage(telegramToken)(id, t)
                 )<TaskHandler>,
                 injectProgressBar(telegramProgressBar(tgm, id))<TaskHandler>,
