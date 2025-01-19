@@ -2,70 +2,20 @@ import type http from "node:http";
 import { type WebSocket, WebSocketServer } from "npm:ws";
 import { gamla } from "../deps.ts";
 import {
-  injectFileLimitMB,
+  type ChatEventPreSending,
+  genericInject,
   injectMedium,
-  injectProgressBar,
-  injectReply,
-  injectSendFile,
-  injectSpinner,
-  injectUserId,
+  now,
   type TaskHandler,
   type UniqueUserId,
 } from "./api.ts";
 
 const { complement, equals, nonempty, pipe } = gamla;
 
-type ChatEventPreSending = {
-  key: string;
-  text?: string;
-  percentage?: number;
-  spinner?: boolean;
-  url?: string;
-  urlText?: string;
-};
-
-export type ChatEvent = ChatEventPreSending & {
-  time: number;
-  from: string;
-  to: string;
-};
-
 type Manager = {
   mapping: Record<string, WebSocket[]>;
   buffered: Record<string, ChatEventPreSending[]>;
 };
-
-const makeKey = () => crypto.randomUUID();
-
-export const now = () => Date.now();
-
-export const websocketInject = <T extends TaskHandler>(
-  send: (x: ChatEventPreSending) => Promise<void>,
-  userId: string,
-) =>
-  pipe(
-    injectMedium(() => "websocket")<T>,
-    injectFileLimitMB(() => Number.POSITIVE_INFINITY)<T>,
-    injectUserId(() => userId)<T>,
-    injectProgressBar(async (text: string) => {
-      const key = makeKey();
-      await send({ key, text, percentage: 0 });
-      return Promise.resolve((percentage: number) =>
-        send({ key, text, percentage })
-      );
-    })<T>,
-    injectSpinner(async (text: string) => {
-      const key = makeKey();
-      await send({ key, text, spinner: true });
-      return () => send({ key, text, spinner: false });
-    })<T>,
-    injectReply(async (text: string) => {
-      const key = makeKey();
-      await send({ text, key });
-      return key;
-    })<T>,
-    injectSendFile(pipe((url: string) => ({ url, key: makeKey() }), send))<T>,
-  );
 
 const jsonOnSocket = <T>(msg: T) => (socket: WebSocket) =>
   new Promise<void>((resolve) =>
@@ -138,7 +88,10 @@ export const setupWebsocketOnServer = (
       const { uniqueId, humanReadableId } = loginResult;
       addSocket(ws, uniqueId);
       if (!text) return;
-      websocketInject(sendToUser(uniqueId), humanReadableId)(doTask)({ text });
+      pipe(
+        genericInject(sendToUser(uniqueId), humanReadableId),
+        injectMedium(() => "websocket"),
+      )(doTask)({ text });
     });
     ws.on("close", () => {
       removeSocket(ws);
