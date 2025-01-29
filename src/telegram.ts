@@ -14,6 +14,7 @@ import {
   injectReply,
   injectSendFile,
   injectSpinner,
+  injectTyping,
   injectUserId,
   type TaskHandler,
 } from "./api.ts";
@@ -97,6 +98,9 @@ const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
       .then(() => {});
   };
 };
+
+const makeTyping = (tgm: Telegram, uid: number) => () =>
+  tgm.sendChatAction(uid, "typing").then(() => {});
 
 const tokenToTelegramURL = (token: string) =>
   `https://api.telegram.org/bot${token}/`;
@@ -226,6 +230,7 @@ export const makeTelegramHandler = (
                 )<TaskHandler>,
                 injectProgressBar(telegramProgressBar(tgm, id))<TaskHandler>,
                 injectSpinner(makeSpinner(tgm, id))<TaskHandler>,
+                injectTyping(makeTyping(tgm, id))<TaskHandler>,
               )(doTask),
           ),
         )(message)

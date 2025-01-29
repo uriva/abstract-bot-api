@@ -73,6 +73,23 @@ export const { inject: injectSpinner, access: spinner } = context(
   },
 );
 
+export const { inject: injectTyping, access: typing } = context(
+  () => {
+    console.log("Typing...");
+    return Promise.resolve();
+  },
+);
+
+export const withTyping = <
+  // deno-lint-ignore no-explicit-any
+  F extends (...params: any[]) => Promise<any>,
+>(f: F): F =>
+// @ts-expect-error ts cannot infer
+async (...xs: Parameters<F>) => {
+  await typing();
+  return await f(...xs);
+};
+
 export const withSpinner = <
   // deno-lint-ignore no-explicit-any
   F extends (...params: any[]) => Promise<any>,
