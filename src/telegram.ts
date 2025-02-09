@@ -105,6 +105,48 @@ const makeTyping = (tgm: Telegram, uid: number) => () =>
 const tokenToTelegramURL = (token: string) =>
   `https://api.telegram.org/bot${token}/`;
 
+const streamToChunks = async (stream: Readable) => {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return chunks;
+};
+
+export const telegramSendFile =
+  (botToken: string) =>
+  async (userId: number, stream: Readable, filename: string): Promise<void> => {
+    const body = new FormData();
+    body.append("chat_id", String(userId));
+    body.append("document", new Blob(await streamToChunks(stream)), filename);
+    await fetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
+      method: "POST",
+      body,
+    }).then(console.log).catch(console.error);
+  };
+
+type TelegramImageType = "jpeg" | "png";
+
+export const telegramSendPhoto = (botToken: string) =>
+async (
+  userId: number,
+  stream: Readable,
+  imageType: TelegramImageType,
+  imageName: string,
+) => {
+  const body = new FormData();
+  body.append("chat_id", String(userId));
+  body.append(
+    "photo",
+    new Blob(await streamToChunks(stream), { type: `image/${imageType}` }),
+    imageName,
+  );
+  await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
+    method: "POST",
+    body,
+  }).then(console.log).catch(console.error);
+};
+
 export const sendTelegramMessage = (token: string) =>
   pipe(
     retry(2, 500, (chat_id: number, text: string) =>
