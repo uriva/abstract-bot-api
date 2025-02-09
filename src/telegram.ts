@@ -105,8 +105,8 @@ const makeTyping = (tgm: Telegram, uid: number) => () =>
 const tokenToTelegramURL = (token: string) =>
   `https://api.telegram.org/bot${token}/`;
 
-const streamToChunks = async (stream: Readable) => {
-  const chunks: Uint8Array[] = [];
+const streamToChunks = async (stream: NodeJS.ReadableStream) => {
+  const chunks = [];
   for await (const chunk of stream) {
     chunks.push(chunk);
   }
@@ -115,7 +115,11 @@ const streamToChunks = async (stream: Readable) => {
 
 export const telegramSendFile =
   (botToken: string) =>
-  async (userId: number, stream: Readable, filename: string): Promise<void> => {
+  async (
+    userId: number,
+    stream: NodeJS.ReadableStream,
+    filename: string,
+  ): Promise<void> => {
     const body = new FormData();
     body.append("chat_id", String(userId));
     body.append("document", new Blob(await streamToChunks(stream)), filename);
@@ -130,7 +134,7 @@ type TelegramImageType = "jpeg" | "png";
 export const telegramSendPhoto = (botToken: string) =>
 async (
   userId: number,
-  stream: Readable,
+  stream: NodeJS.ReadableStream,
   imageType: TelegramImageType,
   imageName: string,
 ) => {
