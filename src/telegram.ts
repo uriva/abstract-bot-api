@@ -122,7 +122,7 @@ export const telegramSendFile =
     await fetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
       method: "POST",
       body,
-    }).then(console.log).catch(console.error);
+    });
   };
 
 type TelegramImageType = "jpeg" | "png";
@@ -144,7 +144,7 @@ async (
   await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
     method: "POST",
     body,
-  }).then(console.log).catch(console.error);
+  });
 };
 
 export const sendTelegramMessage = (token: string) =>
