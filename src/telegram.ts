@@ -242,7 +242,6 @@ async (
 
 const handler = <T extends TaskHandler>(
   telegramToken: string,
-  doTask: T,
   id: number,
   tgm: Telegram,
   lastEvent: ConversationEvent,
@@ -260,7 +259,7 @@ const handler = <T extends TaskHandler>(
     injectProgressBar(telegramProgressBar(tgm, id))<T>,
     injectSpinner(makeSpinner(tgm, id))<T>,
     injectTyping(makeTyping(tgm, id))<T>,
-  )(doTask);
+  );
 
 export const makeTelegramHandler = (
   telegramToken: string,
@@ -274,13 +273,12 @@ export const makeTelegramHandler = (
       message?.from && message.text
         ? handler(
           telegramToken,
-          doTask,
           message.from.id,
           new Telegraf(telegramToken, {
             handlerTimeout: Number.POSITIVE_INFINITY,
           }).telegram,
           await abstractMessage(telegramToken)(message),
-        )()
+        )(doTask)()
         : Promise.resolve(),
   }
 );

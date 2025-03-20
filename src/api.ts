@@ -123,7 +123,8 @@ export type ConversationEvent = {
   ownPhone?: string;
 };
 
-export type TaskHandler = <T>() => Promise<T>;
+// deno-lint-ignore no-explicit-any
+export type TaskHandler = () => any;
 
 export type UniqueUserId = string;
 
