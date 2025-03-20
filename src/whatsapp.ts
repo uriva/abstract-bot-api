@@ -2,6 +2,7 @@ import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { gamla } from "../deps.ts";
 import {
   injectBotPhone,
+  injectLastEvent,
   injectMedium,
   injectMessageId,
   injectReferenceId,
@@ -9,7 +10,7 @@ import {
   injectSpinner,
   injectUserId,
 } from "./api.ts";
-import type { AbstractIncomingMessage, TaskHandler } from "./index.ts";
+import type { ConversationEvent, TaskHandler } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
 
 const {
@@ -356,7 +357,7 @@ const getText = (accessToken: string) => async (msg: WhatsappMessage) => ({
 
 const getContacts = (
   msg: WhatsappMessage,
-): Record<string, never> | { contact: AbstractIncomingMessage["contact"] } => {
+): Record<string, never> | { contact: ConversationEvent["contact"] } => {
   const contacts = innerMessages(msg).flatMap((x) =>
     x.type === "contacts" ? x.contacts : []
   );
@@ -375,9 +376,15 @@ export const whatsappBusinessHandler = (
   handler: async (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(
-        sendWhatsappMessage(token, toNumberId(msg))(coerce(fromNumber(msg))),
-        (send) =>
+        {
+          event: { ...await getText(token)(msg), ...getContacts(msg) },
+          send: sendWhatsappMessage(token, toNumberId(msg))(
+            coerce(fromNumber(msg)),
+          ),
+        },
+        ({ send, event }) =>
           pipe(
+            injectLastEvent(() => event),
             injectMedium(() => "whatsapp"),
             injectMessageId(() => messageId(msg)),
             injectBotPhone(() => toNumber(msg)),
@@ -387,7 +394,7 @@ export const whatsappBusinessHandler = (
             referenceId(msg)
               ? injectReferenceId(() => referenceId(msg))
               : identity,
-          ),
-      )(doTask)({ ...await getText(token)(msg), ...getContacts(msg) })
+          )(doTask)(),
+      )
       : Promise.resolve(),
 });

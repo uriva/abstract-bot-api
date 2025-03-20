@@ -8,6 +8,7 @@ const { pipe, replace, identity } = gamla;
 import {
   injectBotPhone,
   injectFileLimitMB,
+  injectLastEvent,
   injectMedium,
   injectMessageId,
   injectReferenceId,
@@ -102,6 +103,7 @@ export const registerWebhook = (
 ) => greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
 const communications = <T extends TaskHandler>(
+  text: string,
   api: ReturnType<typeof greenApi.restAPI>,
   botPhone: string,
   msgId: string,
@@ -110,6 +112,7 @@ const communications = <T extends TaskHandler>(
   send: (txt: string) => Promise<string>,
 ) =>
   pipe(
+    injectLastEvent(() => ({ text }))<T>,
     injectBotPhone(() => botPhone)<T>,
     injectMedium(() => "green-api")<T>,
     injectMessageId(() => msgId)<T>,
@@ -145,11 +148,12 @@ export const greenApiHandler = (
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: (msg: GreenApiMessage) =>
     communications(
+      messageText(msg),
       greenApi.restAPI(credentials),
       rewriteNumber(msg.instanceData.wid),
       msg.idMessage,
       greenApiReferenceId(msg),
       messageSender(msg),
       sendGreenApiMessage(credentials)(messageSender(msg)),
-    )(doTask)({ text: messageText(msg) }),
+    )(doTask)(),
 });

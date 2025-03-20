@@ -4,6 +4,7 @@ import { gamla } from "../deps.ts";
 import {
   type ChatEventPreSending,
   genericInject,
+  injectLastEvent,
   injectMedium,
   now,
   type TaskHandler,
@@ -91,7 +92,8 @@ export const setupWebsocketOnServer = (
       pipe(
         genericInject(sendToUser(uniqueId), humanReadableId),
         injectMedium(() => "websocket"),
-      )(doTask)({ text });
+        injectLastEvent(() => ({ text })),
+      )(doTask)();
     });
     ws.on("close", () => {
       removeSocket(ws);

@@ -42,6 +42,12 @@ export const { inject: injectReferenceId, access: referenceId } = context(
   },
 );
 
+export const { inject: injectLastEvent, access: lastEvent } = context(
+  (): ConversationEvent => {
+    throw new Error("no user ID in context");
+  },
+);
+
 export const { inject: injectReply, access: reply } = context(
   (msg: string): Promise<string> => {
     console.log("Reply:", msg);
@@ -109,7 +115,7 @@ async (...xs: Parameters<F>) => {
   }
 };
 
-export type AbstractIncomingMessage = {
+export type ConversationEvent = {
   text?: string;
   contact?: { phone: string; name: string };
   image?: string;
@@ -117,9 +123,7 @@ export type AbstractIncomingMessage = {
   ownPhone?: string;
 };
 
-export type TaskHandler =
-  // deno-lint-ignore no-explicit-any
-  (incoming: AbstractIncomingMessage) => Promise<any>;
+export type TaskHandler = <T>() => Promise<T>;
 
 export type UniqueUserId = string;
 

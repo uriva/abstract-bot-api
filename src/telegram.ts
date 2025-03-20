@@ -1,14 +1,12 @@
-import { Readable } from "node:stream";
-import { Telegraf, type Telegram } from "npm:telegraf";
-
-import { gamla, type grammy } from "../deps.ts";
-
-const { coerce, letIn, max, pipe, prop, retry, sleep, throttle } = gamla;
-
 import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
 import { get } from "node:https";
+import { Readable } from "node:stream";
+import { Telegraf, type Telegram } from "npm:telegraf";
+import { gamla, type grammy } from "../deps.ts";
 import {
+  ConversationEvent,
   injectFileLimitMB,
+  injectLastEvent,
   injectMedium,
   injectProgressBar,
   injectReply,
@@ -18,7 +16,9 @@ import {
   injectUserId,
   type TaskHandler,
 } from "./api.ts";
-import type { AbstractIncomingMessage, Endpoint } from "./index.ts";
+import type { Endpoint } from "./index.ts";
+
+const { coerce, max, pipe, prop, retry, sleep, throttle } = gamla;
 
 const createUrlReadStream = (url: string): Readable => {
   const readable = new Readable({ read() {} });
@@ -41,10 +41,7 @@ export const sendFileTelegram =
     retry(
       3000,
       2,
-      (
-        uid: number,
-        path: string,
-      ) => (path.includes(".gif")
+      (uid: number, path: string) => (path.includes(".gif")
         ? tgm.sendAnimation(uid, path)
         : tgm.sendVideo(uid, { source: createUrlReadStream(path) })),
     )(uid, path);
@@ -113,21 +110,20 @@ const streamToChunks = async (stream: NodeJS.ReadableStream) => {
   return chunks;
 };
 
-export const telegramSendFile =
-  (botToken: string) =>
-  async (
-    userId: number,
-    stream: NodeJS.ReadableStream,
-    filename: string,
-  ): Promise<void> => {
-    const body = new FormData();
-    body.append("chat_id", String(userId));
-    body.append("document", new Blob(await streamToChunks(stream)), filename);
-    await fetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
-      method: "POST",
-      body,
-    });
-  };
+export const telegramSendFile = (botToken: string) =>
+async (
+  userId: number,
+  stream: NodeJS.ReadableStream,
+  filename: string,
+): Promise<void> => {
+  const body = new FormData();
+  body.append("chat_id", String(userId));
+  body.append("document", new Blob(await streamToChunks(stream)), filename);
+  await fetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
+    method: "POST",
+    body,
+  });
+};
 
 type TelegramImageType = "jpeg" | "png";
 
@@ -230,7 +226,7 @@ export const getBestPhoneFromContactShared = ({
 const abstractMessage = (token: string) =>
 async (
   { text, entities, contact, photo, caption, from }: grammy.Message,
-): Promise<AbstractIncomingMessage> => ({
+): Promise<ConversationEvent> => ({
   text: text +
     (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
       (x) => x,
@@ -244,6 +240,28 @@ async (
   ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
 });
 
+const handler = <T extends TaskHandler>(
+  telegramToken: string,
+  doTask: T,
+  id: number,
+  tgm: Telegram,
+  lastEvent: ConversationEvent,
+) =>
+  pipe(
+    injectLastEvent(() => lastEvent)<T>,
+    injectMedium(() => "telegram")<T>,
+    injectUserId(() => id.toString())<T>,
+    injectFileLimitMB(() => 50)<T>,
+    injectSendFile(sendFileTelegram(tgm, id))<T>,
+    injectReply((t: string) =>
+      // @ts-ignore error in node but not in deno
+      sendTelegramMessage(telegramToken)(id, t)
+    )<T>,
+    injectProgressBar(telegramProgressBar(tgm, id))<T>,
+    injectSpinner(makeSpinner(tgm, id))<T>,
+    injectTyping(makeTyping(tgm, id))<T>,
+  )(doTask);
+
 export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
@@ -252,34 +270,17 @@ export const makeTelegramHandler = (
   {
     bounce: true,
     predicate: ({ url, method }) => url === path && method === "POST",
-    handler: ({ message }: grammy.Update) =>
+    handler: async ({ message }: grammy.Update) =>
       message?.from && message.text
-        ? pipe(
-          abstractMessage(telegramToken),
-          letIn(
-            {
-              id: message.from.id,
-              tgm: new Telegraf(telegramToken, {
-                handlerTimeout: Number.POSITIVE_INFINITY,
-              })
-                .telegram,
-            },
-            ({ id, tgm }) =>
-              pipe(
-                injectMedium(() => "telegram")<TaskHandler>,
-                injectUserId(() => id.toString())<TaskHandler>,
-                injectFileLimitMB(() => 50)<TaskHandler>,
-                injectSendFile(sendFileTelegram(tgm, id))<TaskHandler>,
-                injectReply((t: string) =>
-                  // @ts-ignore error in node but not in deno
-                  sendTelegramMessage(telegramToken)(id, t)
-                )<TaskHandler>,
-                injectProgressBar(telegramProgressBar(tgm, id))<TaskHandler>,
-                injectSpinner(makeSpinner(tgm, id))<TaskHandler>,
-                injectTyping(makeTyping(tgm, id))<TaskHandler>,
-              )(doTask),
-          ),
-        )(message)
+        ? handler(
+          telegramToken,
+          doTask,
+          message.from.id,
+          new Telegraf(telegramToken, {
+            handlerTimeout: Number.POSITIVE_INFINITY,
+          }).telegram,
+          await abstractMessage(telegramToken)(message),
+        )()
         : Promise.resolve(),
   }
 );
