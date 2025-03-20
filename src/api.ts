@@ -44,7 +44,7 @@ export const { inject: injectReferenceId, access: referenceId } = context(
 
 export const { inject: injectLastEvent, access: lastEvent } = context(
   (): ConversationEvent => {
-    throw new Error("no user ID in context");
+    throw new Error("no last event in context");
   },
 );
 
@@ -150,8 +150,10 @@ const makeKey = () => crypto.randomUUID();
 export const genericInject = <T extends TaskHandler>(
   send: (x: ChatEventPreSending) => Promise<void>,
   userId: string,
+  event: ConversationEvent,
 ) =>
   pipe(
+    injectLastEvent(() => event)<T>,
     injectFileLimitMB(() => Number.POSITIVE_INFINITY)<T>,
     injectUserId(() => userId)<T>,
     injectProgressBar(async (text: string) => {
