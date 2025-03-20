@@ -90,7 +90,7 @@ export const setupWebsocketOnServer = (
       addSocket(ws, uniqueId);
       if (!text) return;
       pipe(
-        genericInject(sendToUser(uniqueId), humanReadableId),
+        genericInject(sendToUser(uniqueId), humanReadableId, { text }),
         injectMedium(() => "websocket"),
         injectLastEvent(() => ({ text })),
       )(doTask)();
