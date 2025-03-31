@@ -223,7 +223,7 @@ export const getBestPhoneFromContactShared = ({
   return phone_number;
 };
 
-const abstractMessage = (token: string) =>
+const toNormalizedEvent = (token: string) =>
 async (
   { text, entities, contact, photo, caption, from }: grammy.Message,
 ): Promise<ConversationEvent> => ({
@@ -240,7 +240,7 @@ async (
   ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
 });
 
-const handler = <T extends TaskHandler>(
+const injectDeps = <T extends TaskHandler>(
   telegramToken: string,
   id: number,
   tgm: Telegram,
@@ -261,6 +261,19 @@ const handler = <T extends TaskHandler>(
     injectTyping(makeTyping(tgm, id))<T>,
   );
 
+export const telegramInjectDepsAndRun =
+  (token: string, handler: TaskHandler) => async ({ message }: grammy.Update) =>
+    message?.from && message.text
+      ? injectDeps(
+        token,
+        message.from.id,
+        new Telegraf(token, {
+          handlerTimeout: Number.POSITIVE_INFINITY,
+        }).telegram,
+        await toNormalizedEvent(token)(message),
+      )(handler)()
+      : Promise.resolve();
+
 export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
@@ -269,16 +282,6 @@ export const makeTelegramHandler = (
   {
     bounce: true,
     predicate: ({ url, method }) => url === path && method === "POST",
-    handler: async ({ message }: grammy.Update) =>
-      message?.from && message.text
-        ? handler(
-          telegramToken,
-          message.from.id,
-          new Telegraf(telegramToken, {
-            handlerTimeout: Number.POSITIVE_INFINITY,
-          }).telegram,
-          await abstractMessage(telegramToken)(message),
-        )(doTask)()
-        : Promise.resolve(),
+    handler: telegramInjectDepsAndRun(telegramToken, doTask),
   }
 );
