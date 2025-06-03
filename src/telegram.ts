@@ -125,27 +125,30 @@ async (
   });
 };
 
-type TelegramImageType = "jpeg" | "png";
-
-export const telegramSendPhoto = (botToken: string) =>
-async (
-  userId: number,
-  stream: NodeJS.ReadableStream,
-  imageType: TelegramImageType,
-  imageName: string,
-) => {
-  const body = new FormData();
-  body.append("chat_id", String(userId));
-  body.append(
-    "photo",
-    new Blob(await streamToChunks(stream), { type: `image/${imageType}` }),
-    imageName,
-  );
-  await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
-    method: "POST",
-    body,
-  });
+type SendPhotoParams = {
+  chatId: number;
+  stream: NodeJS.ReadableStream;
+  fileType: "jpeg" | "png";
+  filename: string;
+  caption?: string;
 };
+
+export const telegramSendPhoto =
+  (botToken: string) =>
+  async ({ chatId, stream, fileType, filename, caption }: SendPhotoParams) => {
+    const body = new FormData();
+    body.append("chat_id", String(chatId));
+    body.append(
+      "photo",
+      new Blob(await streamToChunks(stream), { type: `image/${fileType}` }),
+      filename,
+    );
+    if (caption) body.append("caption", caption);
+    await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
+      method: "POST",
+      body,
+    });
+  };
 
 export const sendTelegramMessage = (token: string) =>
   pipe(
