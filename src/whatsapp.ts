@@ -366,14 +366,8 @@ const getContacts = (
   return { contact: { phone, name } };
 };
 
-export const whatsappBusinessHandler = (
-  token: string,
-  path: string,
-  doTask: TaskHandler,
-): Endpoint<WhatsappMessage> => ({
-  bounce: true,
-  predicate: ({ url, method }) => url === path && method === "POST",
-  handler: async (msg: WhatsappMessage) =>
+export const whatsappForBusinessInjectDepsAndRun =
+  (token: string, doTask: TaskHandler) => async (msg: WhatsappMessage) =>
     msg.entry[0].changes[0].value.messages
       ? letIn(
         {
@@ -396,5 +390,14 @@ export const whatsappBusinessHandler = (
               : identity,
           )(doTask)(),
       )
-      : Promise.resolve(),
+      : Promise.resolve();
+
+export const whatsappBusinessHandler = (
+  token: string,
+  path: string,
+  doTask: TaskHandler,
+): Endpoint<WhatsappMessage> => ({
+  bounce: true,
+  predicate: ({ url, method }) => url === path && method === "POST",
+  handler: whatsappForBusinessInjectDepsAndRun(token, doTask),
 });
