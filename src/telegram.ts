@@ -204,7 +204,7 @@ const image = (token: string) =>
 const sharedOwnPhone = (
   ownId: number,
   { user_id, phone_number }: grammy.Contact,
-) => (user_id === ownId) ? phone_number : undefined;
+) => user_id === ownId ? phone_number : undefined;
 
 const contactToFullName = ({ first_name, last_name }: grammy.Contact) =>
   first_name + (last_name ? ` ${last_name}` : "");
