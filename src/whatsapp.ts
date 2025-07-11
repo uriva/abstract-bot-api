@@ -409,7 +409,7 @@ export const whatsappBusinessHandler = (
   handler: whatsappForBusinessInjectDepsAndRun(token, doTask),
 });
 
-export const sendWhatsappTypingIndicator =
+const sendWhatsappTypingIndicator =
   (accessToken: string, fromNumberId: string) => (messageId: string) =>
     fetch(
       `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
