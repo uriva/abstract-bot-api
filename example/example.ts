@@ -1,5 +1,4 @@
 import {
-  type AbstractIncomingMessage,
   bouncerServer,
   makeTelegramHandler,
   setTelegramWebhook,
@@ -7,7 +6,7 @@ import {
 } from "../src/index.ts";
 
 import { gamla } from "../deps.ts";
-import { reply } from "../src/api.ts";
+import { lastEvent, reply } from "../src/api.ts";
 import {
   whatsappBusinessHandler,
   whatsappWebhookVerificationHandler,
@@ -19,7 +18,8 @@ const botServerSuffix = "/bot-url-suffix";
 
 const whatsappPath = "/whatsapp-url-suffix";
 
-const handleMessage = async (task: AbstractIncomingMessage) => {
+const handleMessage = async () => {
+  const task = lastEvent();
   console.log("got task", task);
   await withSpinner("waiting needlessly", sleep)(5000);
   return reply(`hi there i got ${JSON.stringify(task)}`);
