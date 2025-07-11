@@ -26,6 +26,7 @@ const {
   letIn,
   pipe,
   empty,
+  nonempty,
   map,
   replace,
   juxtCat,
@@ -233,8 +234,8 @@ type WebhookVerification = {
 const innerMessageTypeEquals = (y: string) => (x: InnerMessage) =>
   "type" in x && x.type === y;
 
-const innerMessages = (message: WhatsappMessage) =>
-  message.entry[0].changes[0].value.messages || [];
+const innerMessages = (msg: WhatsappMessage) =>
+  msg.entry[0].changes[0].value.messages || [];
 
 const fromNumber = pipe(
   innerMessages,
@@ -243,7 +244,6 @@ const fromNumber = pipe(
 
 const messageId = pipe(
   innerMessages,
-  filter((x: InnerMessage) => x.type === "reaction"),
   (msgs: InnerMessage[]) => msgs[0].id,
 );
 
@@ -365,13 +365,11 @@ const getContacts = (
 
 export const whatsappForBusinessInjectDepsAndRun =
   (token: string, doTask: TaskHandler) => async (msg: WhatsappMessage) =>
-    msg.entry[0].changes[0].value.messages
+    nonempty(innerMessages(msg))
       ? letIn(
         {
           event: { ...await getText(token)(msg), ...getContacts(msg) },
-          send: sendWhatsappMessage(token, toNumberId(msg))(
-            coerce(fromNumber(msg)),
-          ),
+          send: sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg)),
         },
         ({ send, event }) =>
           pipe(
