@@ -8,10 +8,13 @@ import {
   injectReferenceId,
   injectReply,
   injectSpinner,
+  injectTyping,
   injectUserId,
 } from "./api.ts";
 import type { ConversationEvent, TaskHandler } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
+
+const apiVersion = "v21.0";
 
 const {
   anymap,
@@ -44,7 +47,7 @@ export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) => (to: string) =>
     pipe(convertToWhatsAppFormat, (body: string) =>
       fetch(
-        `https://graph.facebook.com/v20.0/${fromNumberId}/messages`,
+        `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -54,10 +57,7 @@ export const sendWhatsappMessage =
             to,
             text: { preview_url: false, body },
           }),
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: makeHeaders(accessToken),
         },
       ).then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
@@ -84,34 +84,34 @@ export const sendWhatsappTemplate =
     langCode: string,
     components: Component[],
   ) =>
-    fetch(`https://graph.facebook.com/v20.0/${fromNumberId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        recipient_type: "individual",
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
-          name,
-          language: { code: langCode },
-          components: components.map((c) => ({
-            ...c,
-            parameters: c.parameters.map((p) =>
-              p.type === "text"
-                ? ({
-                  type: "text",
-                  text: templateTextParamConstraints(p.text),
-                })
-                : p
-            ),
-          })),
-        },
-      }),
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
+    fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          recipient_type: "individual",
+          messaging_product: "whatsapp",
+          to,
+          type: "template",
+          template: {
+            name,
+            language: { code: langCode },
+            components: components.map((c) => ({
+              ...c,
+              parameters: c.parameters.map((p) =>
+                p.type === "text"
+                  ? ({
+                    type: "text",
+                    text: templateTextParamConstraints(p.text),
+                  })
+                  : p
+              ),
+            })),
+          },
+        }),
+        headers: makeHeaders(accessToken),
       },
-    }).then(async (response) => {
+    ).then(async (response) => {
       if (!response.ok) throw new Error(await response.text());
       return (await response.json()) as SentMessageResponse;
     });
@@ -327,12 +327,9 @@ type MediaGetResponse = {
 };
 
 const getMediaFromId = (accessToken: string) => (id: string): Promise<string> =>
-  fetch(`https://graph.facebook.com/v21.0/${id}`, {
+  fetch(`https://graph.facebook.com/${apiVersion}/${id}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: makeHeaders(accessToken),
   })
     .then((response) => response.json() as Promise<MediaGetResponse>)
     .then(({ url }) =>
@@ -385,12 +382,22 @@ export const whatsappForBusinessInjectDepsAndRun =
             injectUserId(() => coerce(fromNumber(msg))),
             injectSpinner(pipe(send, (_) => () => Promise.resolve())),
             injectReply(send),
+            injectTyping(() =>
+              sendWhatsappTypingIndicator(token, toNumberId(msg))(
+                messageId(msg),
+              )
+            ),
             referenceId(msg)
               ? injectReferenceId(() => referenceId(msg))
               : identity,
           )(doTask)(),
       )
       : Promise.resolve();
+
+const makeHeaders = (accessToken: string) => ({
+  "Authorization": `Bearer ${accessToken}`,
+  "Content-Type": "application/json",
+});
 
 export const whatsappBusinessHandler = (
   token: string,
@@ -401,3 +408,22 @@ export const whatsappBusinessHandler = (
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: whatsappForBusinessInjectDepsAndRun(token, doTask),
 });
+
+export const sendWhatsappTypingIndicator =
+  (accessToken: string, fromNumberId: string) => (messageId: string) =>
+    fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "read",
+          message_id: messageId,
+          typing_indicator: { type: "text" },
+        }),
+        headers: makeHeaders(accessToken),
+      },
+    ).then(async (response) => {
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    });
