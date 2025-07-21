@@ -226,8 +226,8 @@ export const getBestPhoneFromContactShared = ({
   return phone_number;
 };
 
-const toNormalizedEvent = (token: string) =>
-async (
+const toNormalizedEvent = async (
+  token: string,
   { text, entities, contact, photo, caption, from }: grammy.Message,
 ): Promise<ConversationEvent> => ({
   text: text +
@@ -247,10 +247,8 @@ const injectDeps = <T extends TaskHandler>(
   telegramToken: string,
   id: number,
   tgm: Telegram,
-  lastEvent: ConversationEvent,
 ) =>
   pipe(
-    injectLastEvent(() => lastEvent)<T>,
     injectMedium(() => "telegram")<T>,
     injectUserId(() => id.toString())<T>,
     injectFileLimitMB(() => 50)<T>,
@@ -264,27 +262,26 @@ const injectDeps = <T extends TaskHandler>(
     injectTyping(makeTyping(tgm, id))<T>,
   );
 
-export const telegramInjectDepsAndRun =
-  (token: string, handler: TaskHandler) => async ({ message }: grammy.Update) =>
-    message?.from && message.text
-      ? injectDeps(
-        token,
-        message.from.id,
-        new Telegraf(token, {
-          handlerTimeout: Number.POSITIVE_INFINITY,
-        }).telegram,
-        await toNormalizedEvent(token)(message),
-      )(handler)()
-      : Promise.resolve();
+const telegrafInstance = (token: string) =>
+  new Telegraf(token, { handlerTimeout: Number.POSITIVE_INFINITY }).telegram;
+
+export const telegramInjectDepsAndRun = (
+  telegramToken: string,
+  fromId: number,
+) => injectDeps(telegramToken, fromId, telegrafInstance(telegramToken));
 
 export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
   doTask: TaskHandler,
-): Endpoint<grammy.Update> => (
-  {
-    bounce: true,
-    predicate: ({ url, method }) => url === path && method === "POST",
-    handler: telegramInjectDepsAndRun(telegramToken, doTask),
-  }
-);
+): Endpoint<grammy.Update> => ({
+  bounce: true,
+  predicate: ({ url, method }) => url === path && method === "POST",
+  handler: async ({ message }: grammy.Update) => {
+    if (!message) return Promise.resolve();
+    const normalizedEvent = await toNormalizedEvent(telegramToken, message);
+    return injectLastEvent(() => normalizedEvent)(
+      telegramInjectDepsAndRun(telegramToken, message.from.id)(doTask),
+    )();
+  },
+});
