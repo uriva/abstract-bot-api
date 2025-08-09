@@ -383,7 +383,9 @@ export const whatsappForBusinessInjectDepsAndRun =
             injectTyping(() =>
               sendWhatsappTypingIndicator(token, toNumberId(msg))(
                 messageId(msg),
-              ).then(() => {})
+              ).catch((e) => {
+                console.error(e);
+              }).then(() => {})
             ),
             referenceId(msg)
               ? injectReferenceId(() => referenceId(msg))
