@@ -43,7 +43,7 @@ export const convertToWhatsAppFormat = (message: string): string =>
         const http = `http://${linkNoProtocol}`;
         const https = `https://${linkNoProtocol}`;
         return (text === linkNoProtocol || text === http || text === https)
-          ? text
+          ? linkNoProtocol
           : `${text} - ${linkNoProtocol}`;
       },
     );
