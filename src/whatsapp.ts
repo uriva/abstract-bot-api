@@ -34,9 +34,19 @@ const {
 
 export const convertToWhatsAppFormat = (message: string): string =>
   message
+    .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<b>(.*?)<\/b>/g, "*$1*")
     .replace(/<u>(.*?)<\/u>/g, "_$1_")
-    .replace(/<a href="https?:\/\/(.*?)">(.*?)<\/a>/g, "$2 - $1");
+    .replace(
+      /<a href="https?:\/\/([^\"]+)">(.*?)<\/a>/g,
+      (_m, linkNoProtocol: string, text: string) => {
+        const http = `http://${linkNoProtocol}`;
+        const https = `https://${linkNoProtocol}`;
+        return (text === linkNoProtocol || text === http || text === https)
+          ? text
+          : `${text} - ${linkNoProtocol}`;
+      },
+    );
 
 type SentMessageResponse = {
   messaging_product: "whatsapp";
