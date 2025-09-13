@@ -7,7 +7,7 @@ import type {
   Update,
 } from "@grammyjs/types";
 import { encodeBase64 } from "@std/encoding";
-import { Injector } from "@uri/inject";
+import type { Injector } from "@uri/inject";
 import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import { get } from "node:https";
 import { Readable } from "node:stream";
