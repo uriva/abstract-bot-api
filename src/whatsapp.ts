@@ -53,7 +53,8 @@ type SentMessageResponse = {
 };
 
 export const sendWhatsappMessage =
-  (accessToken: string, fromNumberId: string) => (to: string) =>
+  (accessToken: string, fromNumberId: string) =>
+  (to: string): (msg: string) => Promise<string> =>
     pipe(convertToWhatsAppFormat, (body: string) =>
       fetch(
         `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
@@ -92,7 +93,7 @@ export const sendWhatsappTemplate =
     name: string,
     langCode: string,
     components: Component[],
-  ) =>
+  ): Promise<SentMessageResponse> =>
     fetch(
       `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
       {
@@ -349,7 +350,11 @@ const getMediaFromId = (accessToken: string) => (id: string): Promise<string> =>
     .then((response) => (response.arrayBuffer()))
     .then(encodeBase64);
 
-const getText = (accessToken: string) => async (msg: WhatsappMessage) => ({
+const getText = (accessToken: string) =>
+async (msg: WhatsappMessage): Promise<{
+  image?: string | undefined;
+  text: string;
+}> => ({
   text: isWelcome(msg) ? "/start" : messageText(msg),
   ...(msg.entry[0].changes[0].value?.messages?.[0].type === "image"
     ? {
@@ -372,7 +377,8 @@ const getContacts = (
 };
 
 export const whatsappForBusinessInjectDepsAndRun =
-  (token: string, doTask: TaskHandler) => async (msg: WhatsappMessage) =>
+  (token: string, doTask: TaskHandler) =>
+  async (msg: WhatsappMessage): Promise<void> =>
     nonempty(innerMessages(msg))
       ? letIn(
         {

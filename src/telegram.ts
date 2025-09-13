@@ -7,12 +7,23 @@ import type {
   Update,
 } from "@grammyjs/types";
 import { encodeBase64 } from "@std/encoding";
-import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
+import {
+  type AsyncFunction,
+  coerce,
+  type Func,
+  type MakeAsync,
+  max,
+  pipe,
+  prop,
+  retry,
+  sleep,
+  throttle,
+} from "gamla";
 import { get } from "node:https";
 import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
 import {
-  ConversationEvent,
+  type ConversationEvent,
   injectFileLimitMB,
   injectLastEvent,
   injectMedium,
@@ -43,14 +54,14 @@ const createUrlReadStream = (url: string): Readable => {
 };
 
 export const sendFileTelegram =
-  (tgm: Telegram, uid: number) => (path: string) =>
+  (tgm: Telegram, uid: number) => (path: string): Promise<void> =>
     retry(
       3000,
       2,
       (uid: number, path: string) => (path.includes(".gif")
         ? tgm.sendAnimation(uid, path)
         : tgm.sendVideo(uid, { source: createUrlReadStream(path) })),
-    )(uid, path);
+    )(uid, path).then(() => {});
 
 const progressMessage =
   (text: string, progressBarLength: number) => (progress: number) => {
@@ -61,51 +72,54 @@ const progressMessage =
   };
 
 const telegramProgressBar =
-  (tgm: Telegram, uid: number) => async (text: string) => {
+  (tgm: Telegram, uid: number) =>
+  async (text: string): Promise<(progress: number) => Promise<void>> => {
     const bar = progressMessage(text, 20);
     let lastValue = 0;
     const { message_id } = await tgm.sendMessage(uid, bar(lastValue));
-    return throttle(1)((progress: number) => {
+    return throttle(1)((progress: number): Promise<void> => {
       if (bar(progress) === bar(lastValue)) return Promise.resolve();
       lastValue = progress;
-      return tgm
-        .editMessageText(uid, message_id, undefined, bar(progress)).then();
+      return tgm.editMessageText(uid, message_id, undefined, bar(progress))
+        .then();
     });
   };
 
 const spinnerMessages = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-const makeSpinner = (tgm: Telegram, uid: number) => async (text: string) => {
-  const messageId = await tgm
-    .sendMessage(uid, `${text} ${spinnerMessages[0]}`)
-    .then(({ message_id }) => message_id);
-  let finished = false;
-  const update = async (frame: number): Promise<void> => {
-    if (finished) return;
-    await tgm
-      .editMessageText(
-        uid,
-        messageId,
-        undefined,
-        `${text} ${spinnerMessages[frame]}`,
-        // It may throw an error about the old text being the same as the new, this is not interesting and in general this update doesn't have to succeed.
-      ).then().catch(() => {});
-    await sleep(500);
-    return update((frame + 1) % spinnerMessages.length);
+const makeSpinner =
+  (tgm: Telegram, uid: number) =>
+  async (text: string): Promise<() => Promise<void>> => {
+    const messageId = await tgm
+      .sendMessage(uid, `${text} ${spinnerMessages[0]}`)
+      .then(({ message_id }) => message_id);
+    let finished = false;
+    const update = async (frame: number): Promise<void> => {
+      if (finished) return;
+      await tgm
+        .editMessageText(
+          uid,
+          messageId,
+          undefined,
+          `${text} ${spinnerMessages[frame]}`,
+          // It may throw an error about the old text being the same as the new, this is not interesting and in general this update doesn't have to succeed.
+        ).then().catch(() => {});
+      await sleep(500);
+      return update((frame + 1) % spinnerMessages.length);
+    };
+    const spinning = update(0);
+    return async () => {
+      finished = true;
+      await spinning;
+      return tgm.editMessageText(uid, messageId, undefined, `${text} done.`)
+        .then(() => {});
+    };
   };
-  const spinning = update(0);
-  return async () => {
-    finished = true;
-    await spinning;
-    return tgm.editMessageText(uid, messageId, undefined, `${text} done.`)
-      .then(() => {});
-  };
-};
 
 const makeTyping = (tgm: Telegram, uid: number) => () =>
   tgm.sendChatAction(uid, "typing").then(() => {});
 
-const tokenToTelegramURL = (token: string) =>
+const tokenToTelegramURL = (token: string): string =>
   `https://api.telegram.org/bot${token}/`;
 
 const streamToChunks = async (stream: NodeJS.ReadableStream) => {
@@ -147,38 +161,44 @@ type SendPhotoParams = {
   caption?: string;
 };
 
-export const telegramSendPhoto =
-  (botToken: string) =>
-  async ({ chatId, stream, fileType, filename, caption }: SendPhotoParams) => {
-    const body = new FormData();
-    body.append("chat_id", String(chatId));
-    body.append(
-      "photo",
-      new Blob(await streamToChunks(stream), { type: `image/${fileType}` }),
-      filename,
-    );
-    if (caption) body.append("caption", caption);
-    await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
-      method: "POST",
-      body,
-    });
-  };
+export const telegramSendPhoto = (botToken: string) =>
+async (
+  { chatId, stream, fileType, filename, caption }: SendPhotoParams,
+): Promise<void> => {
+  const body = new FormData();
+  body.append("chat_id", String(chatId));
+  body.append(
+    "photo",
+    new Blob(await streamToChunks(stream), { type: `image/${fileType}` }),
+    filename,
+  );
+  if (caption) body.append("caption", caption);
+  await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
+    method: "POST",
+    body,
+  });
+};
 
-export const sendTelegramMessage = (token: string) =>
+export const sendTelegramMessage = (token: string): (
+  chat_id: number,
+  text: string,
+) => Promise<string> =>
   pipe(
-    retry(2, 500, (chat_id: number, text: string) =>
-      fetch(`${tokenToTelegramURL(token)}sendMessage`, {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          chat_id,
-          text: sanitizeTelegramHtml(text),
-          disable_web_page_preview: true,
-          parse_mode: "HTML" as ParseMode,
-        }),
-      }).then((r) =>
-        r.json()
-      )),
+    retry(
+      2,
+      500,
+      (chat_id: number, text: string) =>
+        fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+          method: "POST",
+          headers: { "Content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id,
+            text: sanitizeTelegramHtml(text),
+            disable_web_page_preview: true,
+            parse_mode: "HTML" as ParseMode,
+          }),
+        }).then((r) => r.json()),
+    ),
     (response: ApiResponse<Message>) => {
       if (response.ok) {
         return response.result.message_id.toString();
@@ -235,7 +255,10 @@ export const sanitizeTelegramHtml = (input: string): string => {
   return out;
 };
 
-export const setTelegramWebhook = (token: string, url: string) =>
+export const setTelegramWebhook = (
+  token: string,
+  url: string,
+): Promise<Response> =>
   fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
 
 const fileIdToContentBase64 =
@@ -270,7 +293,7 @@ const contactToFullName = ({ first_name, last_name }: Contact) =>
 export const getBestPhoneFromContactShared = ({
   phone_number,
   vcard,
-}: Contact) => {
+}: Contact): string => {
   if (!vcard) return phone_number;
   const lines = vcard.split("\n");
   const preferredCellphone = lines.find(
@@ -319,7 +342,12 @@ const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
 const telegrafInstance = (token: string) =>
   new Telegraf(token, { handlerTimeout: Number.POSITIVE_INFINITY }).telegram;
 
-export const telegramInjectDepsAndRun = (
+export const telegramInjectDepsAndRun: (
+  telegramToken: string,
+  fromId: number,
+) => <F extends Func>(
+  f: F,
+) => F extends AsyncFunction ? F : MakeAsync<F> = (
   telegramToken: string,
   fromId: number,
 ) => injectDeps(telegramToken, fromId, telegrafInstance(telegramToken));

@@ -1,15 +1,20 @@
-import { context } from "context-inject";
+import { context, type Injection, type Injector } from "@uri/inject";
 import { pipe } from "gamla";
 
-export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
+const fileLimit: Injection<() => number> = context(() =>
   Number.POSITIVE_INFINITY
 );
 
-export const { inject: injectBotPhone, access: botPhone } = context(
+export const injectFileLimitMB = fileLimit.inject;
+export const fileLimitMB = fileLimit.access;
+
+const botPhoneInjection: Injection<() => string> = context(
   (): string => {
     throw new Error("no phone in context");
   },
 );
+export const botPhone = botPhoneInjection.access;
+export const injectBotPhone = botPhoneInjection.inject;
 
 type Medium =
   | "whatsapp"
@@ -19,9 +24,12 @@ type Medium =
   | "websocket"
   | "no-medium";
 
-export const { inject: injectMedium, access: medium } = context((): Medium =>
+const mediumInjection: Injection<() => Medium> = context((): Medium =>
   "no-medium"
 );
+
+export const injectMedium = mediumInjection.inject;
+export const medium = mediumInjection.access;
 
 export const { inject: injectUserId, access: userId } = context((): string => {
   throw new Error("no user ID in context");
@@ -140,15 +148,15 @@ export type ChatEvent = ChatEventPreSending & {
   to: string;
 };
 
-export const now = () => Date.now();
+export const now = (): number => Date.now();
 
-const makeKey = () => crypto.randomUUID();
+const makeKey = (): string => crypto.randomUUID();
 
 export const genericInject = (
   send: (x: ChatEventPreSending) => Promise<void>,
   userId: string,
   event: ConversationEvent,
-) =>
+): Injector =>
   pipe(
     injectLastEvent(() => event),
     injectFileLimitMB(() => Number.POSITIVE_INFINITY),

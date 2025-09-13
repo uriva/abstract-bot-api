@@ -96,7 +96,8 @@ const messageText = ({ messageData }: GreenApiMessage) =>
 export const registerWebhook = (
   credentials: GreenCredentials,
   webhookUrl: string,
-) => greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
+): Promise<greenApi.Settings.SetSettings> =>
+  greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
 const communications = (
   text: string,
@@ -124,7 +125,8 @@ const communications = (
 };
 
 export const sendGreenApiMessage =
-  (secrets: GreenCredentials) => (to: string) =>
+  (secrets: GreenCredentials) =>
+  (to: string): (msg: string) => Promise<string> =>
     pipe(
       convertToWhatsAppFormat,
       (txt: string) =>

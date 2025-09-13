@@ -69,7 +69,7 @@ export const setupWebsocketOnServer = (
   server: http.Server,
   wsLogin: WsLogin,
   doTask: TaskHandler,
-) => {
+): void => {
   const { addSocket, removeSocket, sendToUser } = makeSocketManager();
   // deno-lint-ignore no-explicit-any
   new WebSocketServer({ server }).on("connection", (ws: any) => {
