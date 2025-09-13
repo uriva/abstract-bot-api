@@ -297,7 +297,7 @@ export const getBestPhoneFromContactShared = ({
   return phone_number;
 };
 
-const toNormalizedEvent = async (
+export const telegramNormalizeEvent = async (
   token: string,
   { text, entities, contact, photo, caption, from }: Message,
 ): Promise<ConversationEvent> => ({
@@ -347,9 +347,13 @@ export const makeTelegramHandler = (
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: async ({ message }: Update) => {
     if (!message) return Promise.resolve();
-    const normalizedEvent = await toNormalizedEvent(telegramToken, message);
-    return injectLastEvent(() => normalizedEvent)(
-      telegramInjectDeps(telegramToken, message.from.id)(doTask),
-    )();
+    const normalizedEvent = await telegramNormalizeEvent(
+      telegramToken,
+      message,
+    );
+    return pipe(
+      telegramInjectDeps(telegramToken, message.from.id),
+      injectLastEvent(() => normalizedEvent),
+    )(doTask)();
   },
 });
