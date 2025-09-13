@@ -31,65 +31,76 @@ const mediumInjection: Injection<() => Medium> = context((): Medium =>
 export const injectMedium = mediumInjection.inject;
 export const medium = mediumInjection.access;
 
-export const { inject: injectUserId, access: userId } = context((): string => {
+const userIdInjection: Injection<() => string> = context((): string => {
   throw new Error("no user ID in context");
 });
+export const injectUserId = userIdInjection.inject;
+export const userId = userIdInjection.access;
 
-export const { inject: injectMessageId, access: messageId } = context(
-  (): string => {
-    throw new Error("no message ID in context");
-  },
-);
+const messageIdInjection: Injection<() => string> = context((): string => {
+  throw new Error("no message ID in context");
+});
+export const injectMessageId = messageIdInjection.inject;
+export const messageId = messageIdInjection.access;
 
-export const { inject: injectReferenceId, access: referenceId } = context(
-  (): string => {
-    throw new Error("no reference ID in context");
-  },
-);
+const referenceIdInjection: Injection<() => string> = context((): string => {
+  throw new Error("no reference ID in context");
+});
+export const injectReferenceId = referenceIdInjection.inject;
+export const referenceId = referenceIdInjection.access;
 
-export const { inject: injectLastEvent, access: lastEvent } = context(
+const lastEventInjection: Injection<() => ConversationEvent> = context(
   (): ConversationEvent => {
     throw new Error("no last event in context");
   },
 );
+export const injectLastEvent = lastEventInjection.inject;
+export const lastEvent = lastEventInjection.access;
 
-export const { inject: injectReply, access: reply } = context(
+const replyInjection: Injection<(msg: string) => Promise<string>> = context(
   (msg: string): Promise<string> => {
     console.log("Reply:", msg);
     return Promise.resolve(crypto.randomUUID());
   },
 );
+export const injectReply = replyInjection.inject;
+export const reply = replyInjection.access;
 
-export const { inject: injectSendFile, access: sendFile } = context((
-  url: string,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> => {
-  console.log("File:", url);
-  return Promise.resolve();
-});
+const sendFileInjection: Injection<(url: string) => Promise<void>> = context(
+  (url: string) => {
+    console.log("File:", url);
+    return Promise.resolve();
+  },
+);
+export const injectSendFile = sendFileInjection.inject;
+export const sendFile = sendFileInjection.access;
 
-export const { inject: injectProgressBar, access: progressBar } = context((
-  text: string,
-) =>
+const progressBarInjection: Injection<
+  (text: string) => Promise<(percentage: number) => Promise<void>>
+> = context((text: string) =>
   Promise.resolve((percentage: number) => {
     console.log("Progress:", text, (percentage * 100).toFixed());
     return Promise.resolve();
   })
 );
+export const injectProgressBar = progressBarInjection.inject;
+export const progressBar = progressBarInjection.access;
 
-export const { inject: injectSpinner, access: spinner } = context(
-  (text: string) => {
-    console.log("Spinner:", text);
-    return Promise.resolve(() => Promise.resolve());
-  },
-);
+const spinnerInjection: Injection<
+  (text: string) => Promise<() => Promise<void>>
+> = context((text: string) => {
+  console.log("Spinner:", text);
+  return Promise.resolve(() => Promise.resolve());
+});
+export const injectSpinner = spinnerInjection.inject;
+export const spinner = spinnerInjection.access;
 
-export const { inject: injectTyping, access: typing } = context(
-  () => {
-    console.log("Typing...");
-    return Promise.resolve();
-  },
-);
+const typingInjection: Injection<() => Promise<void>> = context(() => {
+  console.log("Typing...");
+  return Promise.resolve();
+});
+export const injectTyping = typingInjection.inject;
+export const typing = typingInjection.access;
 
 export const withTyping = <
   // deno-lint-ignore no-explicit-any

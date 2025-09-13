@@ -116,7 +116,7 @@ const communications = (
     injectFileLimitMB(() => 50),
     injectUserId(() => userId),
     injectSendFile((url: string) =>
-      api.file.sendFileByUrl(userId, null, url, "video.mp4", "")
+      api.file.sendFileByUrl(userId, null, url, "video.mp4", "").then(() => {})
     ),
     injectSpinner(pipe(send, (_) => () => Promise.resolve())),
     injectReply(send),
