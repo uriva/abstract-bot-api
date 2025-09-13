@@ -7,18 +7,8 @@ import type {
   Update,
 } from "@grammyjs/types";
 import { encodeBase64 } from "@std/encoding";
-import {
-  type AsyncFunction,
-  coerce,
-  type Func,
-  type MakeAsync,
-  max,
-  pipe,
-  prop,
-  retry,
-  sleep,
-  throttle,
-} from "gamla";
+import { Injector } from "@uri/inject";
+import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import { get } from "node:https";
 import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
@@ -342,15 +332,11 @@ const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
 const telegrafInstance = (token: string) =>
   new Telegraf(token, { handlerTimeout: Number.POSITIVE_INFINITY }).telegram;
 
-export const telegramInjectDepsAndRun: (
+export const telegramInjectDeps = (
   telegramToken: string,
   fromId: number,
-) => <F extends Func>(
-  f: F,
-) => F extends AsyncFunction ? F : MakeAsync<F> = (
-  telegramToken: string,
-  fromId: number,
-) => injectDeps(telegramToken, fromId, telegrafInstance(telegramToken));
+): Injector =>
+  injectDeps(telegramToken, fromId, telegrafInstance(telegramToken));
 
 export const makeTelegramHandler = (
   telegramToken: string,
@@ -363,7 +349,7 @@ export const makeTelegramHandler = (
     if (!message) return Promise.resolve();
     const normalizedEvent = await toNormalizedEvent(telegramToken, message);
     return injectLastEvent(() => normalizedEvent)(
-      telegramInjectDepsAndRun(telegramToken, message.from.id)(doTask),
+      telegramInjectDeps(telegramToken, message.from.id)(doTask),
     )();
   },
 });
