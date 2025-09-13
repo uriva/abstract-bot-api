@@ -20,13 +20,7 @@ This library provides a unified API over:
 
 ## Installation
 
-node.js:
-
-`npm i abstract-bot-api`
-
-deno:
-
-`import abc from "https://deno.land/x/abstract_bot_api/src/index.ts";`
+`jsr:@uri/abstract-bot-api`
 
 ## API
 
