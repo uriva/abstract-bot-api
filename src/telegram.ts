@@ -172,7 +172,7 @@ export const sendTelegramMessage = (token: string) =>
         headers: { "Content-type": "application/json" },
         body: JSON.stringify({
           chat_id,
-          text,
+          text: sanitizeTelegramHtml(text),
           disable_web_page_preview: true,
           parse_mode: "HTML" as ParseMode,
         }),
@@ -188,6 +188,52 @@ export const sendTelegramMessage = (token: string) =>
       );
     },
   );
+
+// Escape unsafe HTML while preserving a small allowlist of Telegram-supported tags
+// so parse_mode: "HTML" won't fail on plain angle brackets like "<ul>" or "<someurl>".
+// Allowlist includes tags commonly used in bots: b, strong, i, em, u, s, del, code, pre, and <a href="...">.
+export const sanitizeTelegramHtml = (input: string): string => {
+  if (!input) return input;
+  // First, escape everything that could break HTML parsing
+  let out = input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+  // Then, selectively unescape allowed tags. We keep attributes only for <a ...> and <pre ...>.
+  const simpleTags = [
+    "b",
+    "strong",
+    "i",
+    "em",
+    "u",
+    "s",
+    "strike",
+    "del",
+    "code",
+    "pre",
+  ];
+  for (const tag of simpleTags) {
+    const open = new RegExp(`&lt;${tag}&gt;`, "gi");
+    const close = new RegExp(`&lt;\/${tag}&gt;`, "gi");
+    out = out.replace(open, `<${tag}>`).replace(close, `</${tag}>`);
+  }
+
+  // <a href="..."> ... </a>
+  out = out
+    .replace(/&lt;a\s+href=("[^"]*"|'[^']*')\s*&gt;/gi, "<a href=$1>")
+    .replace(/&lt;\/a&gt;/gi, "</a>");
+
+  // Preserve Telegram spoiler spans: <span class="tg-spoiler">
+  out = out
+    .replace(
+      /&lt;span\s+class=("tg-spoiler"|'tg-spoiler')\s*&gt;/gi,
+      "<span class=$1>",
+    )
+    .replace(/&lt;\/span&gt;/gi, "</span>");
+
+  return out;
+};
 
 export const setTelegramWebhook = (token: string, url: string) =>
   fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
