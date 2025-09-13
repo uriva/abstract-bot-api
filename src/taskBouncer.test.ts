@@ -1,5 +1,5 @@
+import { assertEquals } from "@std/assert";
 import type { Server } from "node:http";
-import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { bouncerServer, staticFileEndpoint } from "./taskBouncer.ts";
 
 let currentPort = 1234;

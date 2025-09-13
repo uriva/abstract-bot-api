@@ -1,5 +1,5 @@
-import { build, emptyDir } from "jsr:@deno/dnt";
-import { gamla } from "./deps.ts";
+import { build, emptyDir } from "@deno/dnt";
+import { coerce } from "gamla";
 
 const outDir = "./dist";
 
@@ -11,7 +11,7 @@ await build({
   shims: { deno: true },
   package: {
     name: "abstract-bot-api",
-    version: gamla.coerce(Deno.args[0]),
+    version: coerce(Deno.args[0]),
     description: "",
     license: "MIT",
     repository: {

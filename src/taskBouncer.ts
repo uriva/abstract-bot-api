@@ -1,10 +1,8 @@
-import type { Buffer } from "https://deno.land/std@0.140.0/io/buffer.ts";
+import type { Buffer } from "@std/io";
+import { coerce } from "gamla";
 import http from "node:http";
 import querystring from "node:querystring";
 import url from "node:url";
-import { gamla } from "../deps.ts";
-
-const { coerce } = gamla;
 
 const getBody = (req: http.IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {

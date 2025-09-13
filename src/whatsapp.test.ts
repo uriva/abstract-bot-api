@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
+import { assertEquals } from "@std/assert";
 import { convertToWhatsAppFormat } from "./whatsapp.ts";
 
 Deno.test("convertToWhatsAppFormat basic formatting", () => {

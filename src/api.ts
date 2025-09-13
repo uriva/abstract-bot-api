@@ -1,8 +1,5 @@
-import { context } from "https://deno.land/x/context_inject@0.0.3/src/index.ts";
-
-import { gamla } from "./../deps.ts";
-
-const { pipe } = gamla;
+import { context } from "context-inject";
+import { pipe } from "gamla";
 
 export const { inject: injectFileLimitMB, access: fileLimitMB } = context(() =>
   Number.POSITIVE_INFINITY
@@ -147,31 +144,31 @@ export const now = () => Date.now();
 
 const makeKey = () => crypto.randomUUID();
 
-export const genericInject = <T extends TaskHandler>(
+export const genericInject = (
   send: (x: ChatEventPreSending) => Promise<void>,
   userId: string,
   event: ConversationEvent,
 ) =>
   pipe(
-    injectLastEvent(() => event)<T>,
-    injectFileLimitMB(() => Number.POSITIVE_INFINITY)<T>,
-    injectUserId(() => userId)<T>,
+    injectLastEvent(() => event),
+    injectFileLimitMB(() => Number.POSITIVE_INFINITY),
+    injectUserId(() => userId),
     injectProgressBar(async (text: string) => {
       const key = makeKey();
       await send({ key, text, percentage: 0 });
       return Promise.resolve((percentage: number) =>
         send({ key, text, percentage })
       );
-    })<T>,
+    }),
     injectSpinner(async (text: string) => {
       const key = makeKey();
       await send({ key, text, spinner: true });
       return () => send({ key, text, spinner: false });
-    })<T>,
+    }),
     injectReply(async (text: string) => {
       const key = makeKey();
       await send({ text, key });
       return key;
-    })<T>,
-    injectSendFile(pipe((url: string) => ({ url, key: makeKey() }), send))<T>,
+    }),
+    injectSendFile(pipe((url: string) => ({ url, key: makeKey() }), send)),
   );

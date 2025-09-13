@@ -1,4 +1,16 @@
 {
+  "imports": {
+    "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
+    "@grammyjs/types": "npm:@grammyjs/types@3.22.2",
+    "@green-api/whatsapp-api-client": "npm:@green-api/whatsapp-api-client@0.4.4",
+    "@std/assert": "jsr:@std/assert@1.0.14",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "@std/io": "jsr:@std/io@^0.225.2",
+    "context-inject": "npm:context-inject@0.0.5",
+    "gamla": "npm:gamla@133.0.0",
+    "telegraf": "npm:telegraf@^4.16.3",
+    "ws": "npm:ws@8.18.3"
+  },
   "tasks": {
     "build": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run build_npm.ts"
   }

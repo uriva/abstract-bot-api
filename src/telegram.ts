@@ -1,8 +1,16 @@
-import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
+import type {
+  ApiResponse,
+  Contact,
+  Message,
+  ParseMode,
+  PhotoSize,
+  Update,
+} from "@grammyjs/types";
+import { encodeBase64 } from "@std/encoding";
+import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import { get } from "node:https";
 import { Readable } from "node:stream";
-import { Telegraf, type Telegram } from "npm:telegraf";
-import { gamla, type grammy } from "../deps.ts";
+import { Telegraf, type Telegram } from "telegraf";
 import {
   ConversationEvent,
   injectFileLimitMB,
@@ -17,8 +25,6 @@ import {
   type TaskHandler,
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
-
-const { coerce, max, pipe, prop, retry, sleep, throttle } = gamla;
 
 const createUrlReadStream = (url: string): Readable => {
   const readable = new Readable({ read() {} });
@@ -103,9 +109,17 @@ const tokenToTelegramURL = (token: string) =>
   `https://api.telegram.org/bot${token}/`;
 
 const streamToChunks = async (stream: NodeJS.ReadableStream) => {
-  const chunks = [];
+  const chunks: BlobPart[] = [];
   for await (const chunk of stream) {
-    chunks.push(chunk);
+    if (typeof chunk === "string") {
+      chunks.push(chunk);
+    } else if (chunk instanceof Uint8Array) {
+      // Buffer extends Uint8Array in Node; copy to a plain Uint8Array to satisfy DOM types
+      chunks.push(new Uint8Array(chunk));
+    } else {
+      // Fallback: coerce unknown chunk types into bytes via TextEncoder
+      chunks.push(new TextEncoder().encode(String(chunk)));
+    }
   }
   return chunks;
 };
@@ -160,12 +174,12 @@ export const sendTelegramMessage = (token: string) =>
           chat_id,
           text,
           disable_web_page_preview: true,
-          parse_mode: "HTML" as grammy.ParseMode,
+          parse_mode: "HTML" as ParseMode,
         }),
       }).then((r) =>
         r.json()
       )),
-    (response: grammy.ApiResponse<grammy.Message>) => {
+    (response: ApiResponse<Message>) => {
       if (response.ok) {
         return response.result.message_id.toString();
       }
@@ -184,9 +198,7 @@ const fileIdToContentBase64 =
       `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
     );
     if (!response.ok) throw new Error("could not fetch photo url");
-    const { result: { file_path } } = (await response.json()) as {
-      result: grammy.File;
-    };
+    const { result: { file_path } } = await response.json();
     const imageResponse = await fetch(
       `https://api.telegram.org/file/bot${token}/${file_path}`,
     );
@@ -196,23 +208,23 @@ const fileIdToContentBase64 =
 
 const image = (token: string) =>
   pipe(
-    max(prop<grammy.PhotoSize>()("width")),
-    prop<grammy.PhotoSize>()("file_id"),
+    max(prop<PhotoSize>()("width")),
+    prop<PhotoSize>()("file_id"),
     fileIdToContentBase64(token),
   );
 
 const sharedOwnPhone = (
   ownId: number,
-  { user_id, phone_number }: grammy.Contact,
+  { user_id, phone_number }: Contact,
 ) => user_id === ownId ? phone_number : undefined;
 
-const contactToFullName = ({ first_name, last_name }: grammy.Contact) =>
+const contactToFullName = ({ first_name, last_name }: Contact) =>
   first_name + (last_name ? ` ${last_name}` : "");
 
 export const getBestPhoneFromContactShared = ({
   phone_number,
   vcard,
-}: grammy.Contact) => {
+}: Contact) => {
   if (!vcard) return phone_number;
   const lines = vcard.split("\n");
   const preferredCellphone = lines.find(
@@ -228,7 +240,7 @@ export const getBestPhoneFromContactShared = ({
 
 const toNormalizedEvent = async (
   token: string,
-  { text, entities, contact, photo, caption, from }: grammy.Message,
+  { text, entities, contact, photo, caption, from }: Message,
 ): Promise<ConversationEvent> => ({
   text: text +
     (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
@@ -243,23 +255,19 @@ const toNormalizedEvent = async (
   ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
 });
 
-const injectDeps = <T extends TaskHandler>(
-  telegramToken: string,
-  id: number,
-  tgm: Telegram,
-) =>
+const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
   pipe(
-    injectMedium(() => "telegram")<T>,
-    injectUserId(() => id.toString())<T>,
-    injectFileLimitMB(() => 50)<T>,
-    injectSendFile(sendFileTelegram(tgm, id))<T>,
+    injectMedium(() => "telegram"),
+    injectUserId(() => id.toString()),
+    injectFileLimitMB(() => 50),
+    injectSendFile(sendFileTelegram(tgm, id)),
     injectReply((t: string) =>
       // @ts-ignore error in node but not in deno
       sendTelegramMessage(telegramToken)(id, t)
-    )<T>,
-    injectProgressBar(telegramProgressBar(tgm, id))<T>,
-    injectSpinner(makeSpinner(tgm, id))<T>,
-    injectTyping(makeTyping(tgm, id))<T>,
+    ),
+    injectProgressBar(telegramProgressBar(tgm, id)),
+    injectSpinner(makeSpinner(tgm, id)),
+    injectTyping(makeTyping(tgm, id)),
   );
 
 const telegrafInstance = (token: string) =>
@@ -274,10 +282,10 @@ export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
   doTask: TaskHandler,
-): Endpoint<grammy.Update> => ({
+): Endpoint<Update> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
-  handler: async ({ message }: grammy.Update) => {
+  handler: async ({ message }: Update) => {
     if (!message) return Promise.resolve();
     const normalizedEvent = await toNormalizedEvent(telegramToken, message);
     return injectLastEvent(() => normalizedEvent)(

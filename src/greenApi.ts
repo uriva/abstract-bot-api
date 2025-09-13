@@ -1,9 +1,5 @@
-import { gamla } from "../deps.ts";
-
-// @ts-expect-error no types
-import greenApi from "npm:@green-api/whatsapp-api-client@0.4.0-0";
-
-const { pipe, replace, identity } = gamla;
+import greenApi from "@green-api/whatsapp-api-client";
+import { pipe, replace } from "gamla";
 
 import {
   injectBotPhone,
@@ -102,7 +98,7 @@ export const registerWebhook = (
   webhookUrl: string,
 ) => greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
-const communications = <T extends TaskHandler>(
+const communications = (
   text: string,
   api: ReturnType<typeof greenApi.restAPI>,
   botPhone: string,
@@ -110,21 +106,22 @@ const communications = <T extends TaskHandler>(
   referenceId: string | undefined,
   userId: string,
   send: (txt: string) => Promise<string>,
-) =>
-  pipe(
-    injectLastEvent(() => ({ text }))<T>,
-    injectBotPhone(() => botPhone)<T>,
-    injectMedium(() => "green-api")<T>,
-    injectMessageId(() => msgId)<T>,
-    injectFileLimitMB(() => 50)<T>,
-    injectUserId(() => userId)<T>,
+) => {
+  const f = pipe(
+    injectLastEvent(() => ({ text })),
+    injectBotPhone(() => botPhone),
+    injectMedium(() => "green-api"),
+    injectMessageId(() => msgId),
+    injectFileLimitMB(() => 50),
+    injectUserId(() => userId),
     injectSendFile((url: string) =>
       api.file.sendFileByUrl(userId, null, url, "video.mp4", "")
-    )<T>,
-    referenceId ? injectReferenceId(() => referenceId)<T> : identity,
-    injectSpinner(pipe(send, (_) => () => Promise.resolve()))<T>,
-    injectReply(send)<T>,
+    ),
+    injectSpinner(pipe(send, (_) => () => Promise.resolve())),
+    injectReply(send),
   );
+  return referenceId ? injectReferenceId(() => referenceId)(f) : f;
+};
 
 export const sendGreenApiMessage =
   (secrets: GreenCredentials) => (to: string) =>

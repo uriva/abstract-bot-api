@@ -1,6 +1,6 @@
+import { complement, equals, nonempty, pipe } from "gamla";
 import type http from "node:http";
-import { type WebSocket, WebSocketServer } from "npm:ws";
-import { gamla } from "../deps.ts";
+import { type WebSocket, WebSocketServer } from "ws";
 import {
   type ChatEventPreSending,
   genericInject,
@@ -10,8 +10,6 @@ import {
   type TaskHandler,
   type UniqueUserId,
 } from "./api.ts";
-
-const { complement, equals, nonempty, pipe } = gamla;
 
 type Manager = {
   mapping: Record<string, WebSocket[]>;

@@ -1,5 +1,19 @@
-import { encodeBase64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
-import { gamla } from "../deps.ts";
+import { encodeBase64 } from "@std/encoding";
+import {
+  anymap,
+  coerce,
+  empty,
+  filter,
+  identity,
+  join,
+  juxtCat,
+  letIn,
+  map,
+  nonempty,
+  pipe,
+  replace,
+  truncate,
+} from "gamla";
 import {
   injectBotPhone,
   injectLastEvent,
@@ -15,22 +29,6 @@ import type { ConversationEvent, TaskHandler } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
 
 const apiVersion = "v21.0";
-
-const {
-  anymap,
-  filter,
-  join,
-  coerce,
-  identity,
-  truncate,
-  letIn,
-  pipe,
-  empty,
-  nonempty,
-  map,
-  replace,
-  juxtCat,
-} = gamla;
 
 export const convertToWhatsAppFormat = (message: string): string =>
   message
