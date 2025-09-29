@@ -204,14 +204,28 @@ export const sendTelegramMessage = (token: string): (
 // Allowlist includes tags commonly used in bots: b, strong, i, em, u, s, del, code, pre, and <a href="...">.
 export const sanitizeTelegramHtml = (input: string): string => {
   if (!input) return input;
-  // First, escape everything that could break HTML parsing
-  let out = input
+  // 1) Escape everything first so raw angle brackets don't break parsing
+  const escaped = input
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 
-  // Then, selectively unescape allowed tags. We keep attributes only for <a ...> and <pre ...>.
-  const simpleTags = [
+  // 2) Balanced restore for a small allowlist of Telegram-supported tags.
+  // Only restore tags if they are properly matched and valid; otherwise keep them escaped.
+  type Token =
+    | { kind: "text"; value: string }
+    | {
+      kind: "tag";
+      raw: string;
+      name: string;
+      type: "open" | "close";
+      allowedCandidate: boolean;
+      restore?: boolean;
+      hrefQuoted?: string; // for <a href="...">
+      spanSpoiler?: boolean; // for <span class="tg-spoiler">
+    };
+
+  const simpleAllowed = new Set([
     "b",
     "strong",
     "i",
@@ -222,27 +236,113 @@ export const sanitizeTelegramHtml = (input: string): string => {
     "del",
     "code",
     "pre",
-  ];
-  for (const tag of simpleTags) {
-    const open = new RegExp(`&lt;${tag}&gt;`, "gi");
-    const close = new RegExp(`&lt;\/${tag}&gt;`, "gi");
-    out = out.replace(open, `<${tag}>`).replace(close, `</${tag}>`);
+  ]);
+
+  const tagRe = /&lt;(\/)?([a-zA-Z0-9]+)([^&]*?)&gt;/g;
+
+  const tokens: Token[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(escaped))) {
+    if (m.index > last) {
+      tokens.push({ kind: "text", value: escaped.slice(last, m.index) });
+    }
+    const isClose = !!m[1];
+    const name = m[2].toLowerCase();
+    const attr = (m[3] ?? "").trim();
+    let allowedCandidate = false;
+    let hrefQuoted: string | undefined;
+    let spanSpoiler = false;
+
+    if (!isClose) {
+      if (simpleAllowed.has(name)) {
+        allowedCandidate = attr.length === 0; // no attributes allowed for simple tags
+      } else if (name === "a") {
+        const hrefMatch = attr.match(/^href=("[^"]*"|'[^']*')$/i);
+        if (hrefMatch) {
+          allowedCandidate = true;
+          hrefQuoted = hrefMatch[1];
+        }
+      } else if (name === "span") {
+        if (/^class=("tg-spoiler"|'tg-spoiler')$/i.test(attr)) {
+          allowedCandidate = true;
+          spanSpoiler = true;
+        }
+      }
+    } else {
+      // closing tags shouldn't have attributes
+      if (
+        (simpleAllowed.has(name) || name === "a" || name === "span") &&
+        attr.length === 0
+      ) {
+        allowedCandidate = true;
+      }
+    }
+
+    tokens.push({
+      kind: "tag",
+      raw: m[0],
+      name,
+      type: isClose ? "close" : "open",
+      allowedCandidate,
+      hrefQuoted,
+      spanSpoiler,
+    });
+    last = m.index + m[0].length;
+  }
+  if (last < escaped.length) {
+    tokens.push({ kind: "text", value: escaped.slice(last) });
   }
 
-  // <a href="..."> ... </a>
-  out = out
-    .replace(/&lt;a\s+href=("[^"]*"|'[^']*')\s*&gt;/gi, "<a href=$1>")
-    .replace(/&lt;\/a&gt;/gi, "</a>");
+  // Pass 2: mark balanced pairs to restore using a stack per nesting
+  const stack: Array<{ name: string; idx: number }> = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.kind !== "tag" || !t.allowedCandidate) continue;
+    if (t.type === "open") {
+      stack.push({ name: t.name, idx: i });
+    } else {
+      // close
+      const top = stack.length > 0 ? stack[stack.length - 1] : undefined;
+      if (top && top.name === t.name) {
+        // matched pair
+        const openTok = tokens[top.idx];
+        if (openTok.kind === "tag") openTok.restore = true;
+        t.restore = true;
+        stack.pop();
+      } else {
+        // mismatched close - leave escaped
+      }
+    }
+  }
 
-  // Preserve Telegram spoiler spans: <span class="tg-spoiler">
-  out = out
-    .replace(
-      /&lt;span\s+class=("tg-spoiler"|'tg-spoiler')\s*&gt;/gi,
-      "<span class=$1>",
-    )
-    .replace(/&lt;\/span&gt;/gi, "</span>");
+  // Build output restoring only tokens marked restore
+  let result = "";
+  for (const t of tokens) {
+    if (t.kind === "text") {
+      result += t.value;
+    } else if (t.restore) {
+      if (t.type === "open") {
+        if (simpleAllowed.has(t.name)) {
+          result += `<${t.name}>`;
+        } else if (t.name === "a" && t.hrefQuoted) {
+          result += `<a href=${t.hrefQuoted}>`;
+        } else if (t.name === "span" && t.spanSpoiler) {
+          result += `<span class="tg-spoiler">`;
+        } else {
+          // should not happen; keep escaped raw as fallback
+          result += t.raw;
+        }
+      } else {
+        result += `</${t.name}>`;
+      }
+    } else {
+      // keep as escaped
+      result += t.raw;
+    }
+  }
 
-  return out;
+  return result;
 };
 
 export const setTelegramWebhook = (

@@ -48,3 +48,16 @@ Deno.test("sanitizeTelegramHtml preserves anchors", () => {
     'Click <a href="https://example.com">here</a> and &lt;foo&gt;',
   );
 });
+
+Deno.test("sanitizeTelegramHtml escapes unbalanced <b> opening tag", () => {
+  const input = "<b>hello"; // missing closing </b>
+  const out = sanitizeTelegramHtml(input);
+  // Expected to escape since it's unbalanced, otherwise Telegram HTML will fail
+  assertEquals(out, "&lt;b&gt;hello");
+});
+
+Deno.test("sanitizeTelegramHtml escapes unbalanced </b> closing tag", () => {
+  const input = "hello</b>"; // missing opening <b>
+  const out = sanitizeTelegramHtml(input);
+  assertEquals(out, "hello&lt;/b&gt;");
+});
