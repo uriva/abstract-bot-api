@@ -66,6 +66,24 @@ const replyInjection: Injection<(msg: string) => Promise<string>> = context(
 export const injectReply = replyInjection.inject;
 export const reply = replyInjection.access;
 
+export type ImageReplyPayload =
+  | { link: string; caption?: string }
+  | {
+    data: string;
+    caption?: string;
+    mimeType?: string;
+    filename?: string;
+  };
+
+const replyImageInjection: Injection<
+  (image: ImageReplyPayload) => Promise<string>
+> = context((image: ImageReplyPayload): Promise<string> => {
+  console.log("Reply image:", image);
+  return Promise.resolve(crypto.randomUUID());
+});
+export const injectReplyImage = replyImageInjection.inject;
+export const replyImage = replyImageInjection.access;
+
 const sendFileInjection: Injection<(url: string) => Promise<void>> = context(
   (url: string) => {
     console.log("File:", url);

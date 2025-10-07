@@ -1,4 +1,4 @@
-import { encodeBase64 } from "@std/encoding";
+import { decodeBase64, encodeBase64 } from "@std/encoding";
 import {
   anymap,
   coerce,
@@ -21,11 +21,16 @@ import {
   injectMessageId,
   injectReferenceId,
   injectReply,
+  injectReplyImage,
   injectSpinner,
   injectTyping,
   injectUserId,
 } from "./api.ts";
-import type { ConversationEvent, TaskHandler } from "./index.ts";
+import type {
+  ConversationEvent,
+  ImageReplyPayload,
+  TaskHandler,
+} from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
 
 const apiVersion = "v21.0";
@@ -73,6 +78,121 @@ export const sendWhatsappMessage =
         if (!response.ok) throw new Error(await response.text());
         return (await response.json()) as SentMessageResponse;
       }).then(({ messages: [{ id }] }) => id));
+
+const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined),
+  ) as T;
+
+type ImageDataPayload = {
+  data: string;
+  caption?: string;
+  mimeType?: string;
+  filename?: string;
+};
+
+type WhatsappImagePayload = ImageReplyPayload | { id: string; caption?: string };
+
+const defaultMimeType = "image/jpeg";
+
+const extractImageData = (
+  payload: ImageDataPayload,
+): { blob: Blob; filename: string; mimeType: string } => {
+  let { data, mimeType, filename } = payload;
+  const dataUrlMatch = data.match(/^data:(.+?);base64,(.+)$/i);
+  if (dataUrlMatch) {
+    mimeType ??= dataUrlMatch[1];
+    data = dataUrlMatch[2];
+  }
+
+  const sanitizedBase64 = data.replace(/\s/g, "");
+  const bytes = decodeBase64(sanitizedBase64);
+  const effectiveMimeType = mimeType ?? defaultMimeType;
+  const effectiveFilename = filename ??
+    `image.${effectiveMimeType.split("/")[1] ?? "jpg"}`;
+
+  return {
+    blob: new Blob([bytes], { type: effectiveMimeType }),
+    filename: effectiveFilename,
+    mimeType: effectiveMimeType,
+  };
+};
+
+const uploadImageData = async (
+  accessToken: string,
+  fromNumberId: string,
+  payload: ImageDataPayload,
+): Promise<string> => {
+  const { blob, filename, mimeType } = extractImageData(payload);
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", mimeType);
+  form.append("file", blob, filename);
+  const response = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${fromNumberId}/media`,
+    {
+      method: "POST",
+      body: form,
+      headers: { "Authorization": `Bearer ${accessToken}` },
+    },
+  );
+  if (!response.ok) throw new Error(await response.text());
+  const { id }: { id: string } = await response.json();
+  return id;
+};
+
+const imageDescriptorFromPayload = async (
+  accessToken: string,
+  fromNumberId: string,
+  image: WhatsappImagePayload,
+) => {
+  if ("id" in image) return { id: image.id };
+  if ("link" in image) return { link: image.link };
+  if ("data" in image) {
+    const id = await uploadImageData(accessToken, fromNumberId, image);
+    return { id };
+  }
+  return {};
+};
+
+export const sendWhatsappImage =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  async (image: WhatsappImagePayload): Promise<string> => {
+    const { caption } = image;
+    const imageDescriptor = await imageDescriptorFromPayload(
+      accessToken,
+      fromNumberId,
+      image,
+    );
+
+    if (empty(Object.keys(imageDescriptor))) {
+      throw new Error("sendWhatsappImage requires an id, link, or data");
+    }
+
+    const response = await fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          recipient_type: "individual",
+          messaging_product: "whatsapp",
+          to,
+          type: "image",
+          image: stripUndefined({
+            ...imageDescriptor,
+            caption: caption ? convertToWhatsAppFormat(caption) : undefined,
+          }),
+        }),
+        headers: makeHeaders(accessToken),
+      },
+    );
+
+    if (!response.ok) throw new Error(await response.text());
+
+    const { messages } = (await response.json()) as SentMessageResponse;
+    return messages[0].id;
+  };
 
 const templateTextParamConstraints = pipe(
   replace(/\n|\t|(\s\s\s\s)/g, " | "),
@@ -220,7 +340,7 @@ type InnerMessage =
   | VideoMessage;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
-type WhatsappMessage = {
+export type WhatsappMessage = {
   object: string;
   entry: {
     changes: {
@@ -384,8 +504,11 @@ export const whatsappForBusinessInjectDepsAndRun =
         {
           event: { ...await getText(token)(msg), ...getContacts(msg) },
           send: sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg)),
+          sendImageReply: sendWhatsappImage(token, toNumberId(msg))(
+            fromNumber(msg),
+          ),
         },
-        ({ send, event }) =>
+        ({ send, sendImageReply, event }) =>
           pipe(
             injectLastEvent(() => event),
             injectMedium(() => "whatsapp"),
@@ -394,6 +517,7 @@ export const whatsappForBusinessInjectDepsAndRun =
             injectUserId(() => coerce(fromNumber(msg))),
             injectSpinner(pipe(send, (_) => () => Promise.resolve())),
             injectReply(send),
+            injectReplyImage(sendImageReply),
             injectTyping(() =>
               sendWhatsappTypingIndicator(token, toNumberId(msg))(
                 messageId(msg),
