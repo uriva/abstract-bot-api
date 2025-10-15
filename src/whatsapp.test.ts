@@ -32,6 +32,13 @@ Deno.test("convertToWhatsAppFormat link where text equals hostname only", () => 
   assertEquals(convertToWhatsAppFormat(input), expected);
 });
 
+Deno.test("convertToWhatsAppFormat preserves smart quotes outside links and handles them in href", () => {
+  const curly =
+    "<a href=“https://example.com”>“Fancy” link</a><br>and ‘quotes’";
+  const expected = "“Fancy” link - example.com\nand ‘quotes’";
+  assertEquals(convertToWhatsAppFormat(curly), expected);
+});
+
 Deno.test("sendImage sends link payload with formatted caption", async () => {
   const originalFetch = globalThis.fetch;
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];

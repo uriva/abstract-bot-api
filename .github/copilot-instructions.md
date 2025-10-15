@@ -1,7 +1,3 @@
----
-mode: 'agent'
----
-
 # General
 
 Avoid commenting unless necessary. Prefer functional programming, use gamla

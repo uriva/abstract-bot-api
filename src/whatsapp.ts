@@ -37,12 +37,14 @@ const apiVersion = "v21.0";
 
 export const convertToWhatsAppFormat = (message: string): string =>
   message
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<b>(.*?)<\/b>/g, "*$1*")
-    .replace(/<u>(.*?)<\/u>/g, "_$1_")
+    .replace(/<br\s*\/?>(?=)/gi, "\n")
+    .replace(/<b>(.*?)<\/b>/gi, "*$1*")
+    .replace(/<u>(.*?)<\/u>/gi, "_$1_")
+    // Support both straight and smart quotes around href attribute
+    // Capture full URL in group 1 and the host/path without protocol in group 2
     .replace(
-      /<a href="https?:\/\/([^\"]+)">(.*?)<\/a>/g,
-      (_m, linkNoProtocol: string, text: string) => {
+      /<a\s+href=[\"'“”](https?:\/\/([^\"'“”]+))[\"'“”]>(.*?)<\/a>/gi,
+      (_m, _fullUrl: string, linkNoProtocol: string, text: string) => {
         const http = `http://${linkNoProtocol}`;
         const https = `https://${linkNoProtocol}`;
         return (text === linkNoProtocol || text === http || text === https)
@@ -91,7 +93,10 @@ type ImageDataPayload = {
   filename?: string;
 };
 
-type WhatsappImagePayload = ImageReplyPayload | { id: string; caption?: string };
+type WhatsappImagePayload = ImageReplyPayload | {
+  id: string;
+  caption?: string;
+};
 
 const defaultMimeType = "image/jpeg";
 
