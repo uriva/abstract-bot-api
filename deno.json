@@ -15,7 +15,12 @@
     "telegraf": "npm:telegraf@^4.16.3",
     "ws": "npm:ws@8.18.3"
   },
+  "githooks": {
+    "$schema": "https://deno.land/x/githooks/schema.json",
+    "pre-commit": "check"
+  },
   "tasks": {
-    "build": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run build_npm.ts"
+    "build": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run build_npm.ts",
+    "check": "deno fmt --check && deno lint && deno check src/**/*.ts"
   }
 }
