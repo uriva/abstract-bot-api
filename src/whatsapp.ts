@@ -7,8 +7,8 @@ import {
   identity,
   join,
   juxtCat,
-  letIn,
   map,
+  mapCat,
   nonempty,
   pipe,
   replace,
@@ -25,6 +25,7 @@ import {
   injectSpinner,
   injectTyping,
   injectUserId,
+  type MediaAttachment,
 } from "./api.ts";
 import {
   convertHtmlToFacebookFormat,
@@ -444,35 +445,56 @@ type MediaGetResponse = {
   id: string;
 };
 
-const getMediaFromId = (accessToken: string) => (id: string): Promise<string> =>
-  fetch(`https://graph.facebook.com/${apiVersion}/${id}`, {
+const getMediaMetaAndData = async (
+  accessToken: string,
+  id: string,
+) => {
+  const metaResp = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${id}`,
+    {
+      method: "GET",
+      headers: makeHeaders(accessToken),
+    },
+  );
+  if (!metaResp.ok) throw new Error(await metaResp.text());
+  const meta: MediaGetResponse = await metaResp.json();
+  const fileResp = await fetch(meta.url, {
     method: "GET",
-    headers: makeHeaders(accessToken),
-  })
-    .then((response) => response.json() as Promise<MediaGetResponse>)
-    .then(({ url }) =>
-      fetch(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-    )
-    .then((response) => (response.arrayBuffer()))
-    .then(encodeBase64);
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!fileResp.ok) throw new Error(await fileResp.text());
+  const dataBase64 = encodeBase64(await fileResp.arrayBuffer());
+  return { dataBase64, mimeType: meta.mime_type, caption: undefined, ...meta };
+};
 
-const getText = (accessToken: string) =>
-async (msg: WhatsappMessage): Promise<{
-  image?: string | undefined;
-  text: string;
-}> => ({
-  text: isWelcome(msg) ? "/start" : messageText(msg),
-  ...(msg.entry[0].changes[0].value?.messages?.[0].type === "image"
-    ? {
-      image: await getMediaFromId(accessToken)(
-        msg.entry[0].changes[0].value.messages[0].image.id,
-      ),
+const messageToAttachements =
+  (accessToken: string) =>
+  async (m: InnerMessage): Promise<MediaAttachment[]> => {
+    if (m.type === "image" && m.image?.id) {
+      const meta = await getMediaMetaAndData(accessToken, m.image.id);
+      return [{
+        kind: "inline",
+        mimeType: meta.mimeType,
+        dataBase64: meta.dataBase64,
+        caption: m.image.caption,
+      }];
+    } else if (m.type === "video" && m.video?.id) {
+      const meta = await getMediaMetaAndData(accessToken, m.video.id);
+      return [{
+        kind: "inline",
+        mimeType: meta.mimeType,
+        dataBase64: meta.dataBase64,
+        caption: m.video.caption,
+      }];
     }
-    : {}),
-});
+    return [];
+  };
+
+const getAttachments = (accessToken: string) =>
+  pipe(innerMessages, mapCat(messageToAttachements(accessToken)));
+
+const getText = (msg: WhatsappMessage): string =>
+  isWelcome(msg) ? "/start" : messageText(msg);
 
 const getContacts = (
   msg: WhatsappMessage,
@@ -487,39 +509,36 @@ const getContacts = (
 
 export const whatsappForBusinessInjectDepsAndRun =
   (token: string, doTask: TaskHandler) =>
-  async (msg: WhatsappMessage): Promise<void> =>
-    nonempty(innerMessages(msg))
-      ? letIn(
-        {
-          event: { ...await getText(token)(msg), ...getContacts(msg) },
-          send: sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg)),
-          sendImageReply: sendWhatsappImage(token, toNumberId(msg))(
-            fromNumber(msg),
-          ),
-        },
-        ({ send, sendImageReply, event }) =>
-          pipe(
-            injectLastEvent(() => event),
-            injectMedium(() => "whatsapp"),
-            injectMessageId(() => messageId(msg)),
-            injectBotPhone(() => toNumber(msg)),
-            injectUserId(() => coerce(fromNumber(msg))),
-            injectSpinner(pipe(send, (_) => () => Promise.resolve())),
-            injectReply(send),
-            injectReplyImage(sendImageReply),
-            injectTyping(() =>
-              sendWhatsappTypingIndicator(token, toNumberId(msg))(
-                messageId(msg),
-              ).catch((e) => {
-                console.error(e);
-              }).then(() => {})
-            ),
-            referenceId(msg)
-              ? injectReferenceId(() => referenceId(msg))
-              : identity,
-          )(doTask)(),
-      )
-      : Promise.resolve();
+  async (msg: WhatsappMessage): Promise<void> => {
+    if (!nonempty(innerMessages(msg))) return Promise.resolve();
+    const event: ConversationEvent = {
+      text: getText(msg),
+      attachments: await getAttachments(token)(msg),
+      ...getContacts(msg),
+    };
+    const send = sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg));
+    const sendImageReply = sendWhatsappImage(token, toNumberId(msg))(
+      fromNumber(msg),
+    );
+    return pipe(
+      injectLastEvent(() => event),
+      injectMedium(() => "whatsapp"),
+      injectMessageId(() => messageId(msg)),
+      injectBotPhone(() => toNumber(msg)),
+      injectUserId(() => coerce(fromNumber(msg))),
+      injectSpinner(pipe(send, (_) => () => Promise.resolve())),
+      injectReply(send),
+      injectReplyImage(sendImageReply),
+      injectTyping(() =>
+        sendWhatsappTypingIndicator(token, toNumberId(msg))(
+          messageId(msg),
+        ).catch((e) => {
+          console.error(e);
+        }).then(() => {})
+      ),
+      referenceId(msg) ? injectReferenceId(() => referenceId(msg)) : identity,
+    )(doTask)();
+  };
 
 export const whatsappBusinessHandler = (
   token: string,

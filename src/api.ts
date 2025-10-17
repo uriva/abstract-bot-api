@@ -150,11 +150,14 @@ async (...xs: Parameters<F>) => {
   }
 };
 
+export type MediaAttachment =
+  | { kind: "inline"; mimeType: string; dataBase64: string; caption?: string }
+  | { kind: "file"; mimeType: string; fileUri: string; caption?: string };
+
 export type ConversationEvent = {
   text?: string;
   contact?: { phone: string; name: string };
-  image?: string;
-  caption?: string;
+  attachments?: MediaAttachment[];
   ownPhone?: string;
 };
 
