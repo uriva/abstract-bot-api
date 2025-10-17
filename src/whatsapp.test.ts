@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { decodeBase64 } from "@std/encoding";
-import { replyImage, type TaskHandler } from "./index.ts";
+import { lastEvent, replyImage, type TaskHandler } from "./index.ts";
 import {
   sendWhatsappImage,
   whatsappForBusinessInjectDepsAndRun,
@@ -241,6 +241,85 @@ Deno.test("replyImage via whatsapp handler sends image", async () => {
       id: "uploaded-id",
       caption: "*Cat*",
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("inbound image populates attachments array", async () => {
+  const originalFetch = globalThis.fetch;
+  const pixelBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=";
+
+  globalThis.fetch = (input) => {
+    const url = String(input);
+    if (url.includes("/media-id-123")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            messaging_product: "whatsapp",
+            url: "https://example.com/download/image.jpg",
+            mime_type: "image/jpeg",
+            sha256: "abc123",
+            file_size: "1234",
+            id: "media-id-123",
+          }),
+          { status: 200 },
+        ),
+      );
+    }
+    if (url.includes("example.com/download/image.jpg")) {
+      const bytes = decodeBase64(pixelBase64);
+      return Promise.resolve(new Response(bytes, { status: 200 }));
+    }
+    return Promise.resolve(new Response("", { status: 404 }));
+  };
+
+  const message: WhatsappMessage = {
+    object: "whatsapp_business_account",
+    entry: [{
+      changes: [{
+        value: {
+          messaging_product: "whatsapp",
+          metadata: {
+            phone_number_id: "from-number-id",
+            display_phone_number: "5555",
+          },
+          contacts: [{ profile: { name: "Sender" }, wa_id: "111" }],
+          messages: [{
+            from: "111",
+            id: "incoming-image-id",
+            timestamp: "0",
+            type: "image",
+            image: {
+              caption: "Check this out",
+              id: "media-id-123",
+              mime_type: "image/jpeg",
+              sha256: "abc123",
+            },
+          }],
+        },
+      }],
+    }],
+  };
+
+  const handler: TaskHandler = () => {
+    const event = lastEvent();
+    assertEquals(event.text, "Check this out");
+    assertEquals(event.attachments?.length, 1);
+    assertEquals(event.attachments?.[0].kind, "inline");
+    assertEquals(event.attachments?.[0].mimeType, "image/jpeg");
+    assertEquals(event.attachments?.[0].caption, "Check this out");
+    assertEquals(
+      event.attachments?.[0].kind === "inline"
+        ? event.attachments[0].dataBase64
+        : "",
+      pixelBase64,
+    );
+  };
+
+  try {
+    await whatsappForBusinessInjectDepsAndRun("token", handler)(message);
   } finally {
     globalThis.fetch = originalFetch;
   }

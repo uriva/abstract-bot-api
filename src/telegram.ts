@@ -23,6 +23,7 @@ import {
   injectSpinner,
   injectTyping,
   injectUserId,
+  type MediaAttachment,
   type TaskHandler,
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
@@ -351,26 +352,35 @@ export const setTelegramWebhook = (
 ): Promise<Response> =>
   fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
 
-const fileIdToContentBase64 =
-  (token: string) => async (fileId: string): Promise<string> => {
+const fileIdToContentBase64AndMime =
+  (token: string) =>
+  async (fileId: string): Promise<{ dataBase64: string; mimeType: string }> => {
     const response = await fetch(
       `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
     );
-    if (!response.ok) throw new Error("could not fetch photo url");
+    if (!response.ok) throw new Error("could not fetch file url");
     const { result: { file_path } } = await response.json();
-    const imageResponse = await fetch(
+    const fileResponse = await fetch(
       `https://api.telegram.org/file/bot${token}/${file_path}`,
     );
-    if (!imageResponse.ok) throw new Error("could not fetch photo");
-    return encodeBase64(await imageResponse.arrayBuffer());
+    if (!fileResponse.ok) throw new Error("could not fetch file");
+    const dataBase64 = encodeBase64(await fileResponse.arrayBuffer());
+    const mimeType = fileResponse.headers.get("content-type") ||
+      "application/octet-stream";
+    return { dataBase64, mimeType };
   };
 
-const image = (token: string) =>
-  pipe(
-    max(prop<PhotoSize>()("width")),
-    prop<PhotoSize>()("file_id"),
-    fileIdToContentBase64(token),
+const photoAttachment = (token: string) =>
+async (
+  photos: PhotoSize[],
+  caption?: string,
+): Promise<MediaAttachment> => {
+  const largestPhoto = pipe(max(prop<PhotoSize>()("width")))(photos);
+  const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
+    largestPhoto.file_id,
   );
+  return { kind: "inline", mimeType, dataBase64, caption };
+};
 
 const sharedOwnPhone = (
   ownId: number,
@@ -400,19 +410,24 @@ export const getBestPhoneFromContactShared = ({
 export const telegramNormalizeEvent = async (
   token: string,
   { text, entities, contact, photo, caption, from }: Message,
-): Promise<ConversationEvent> => ({
-  text: text +
-    (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
-      (x) => x,
-    ).join("\n"),
-  contact: contact && {
-    name: contactToFullName(contact),
-    phone: getBestPhoneFromContactShared(contact),
-  },
-  image: photo && await image(token)(photo),
-  caption,
-  ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
-});
+): Promise<ConversationEvent> => {
+  const attachments: MediaAttachment[] = [];
+  if (photo) {
+    attachments.push(await photoAttachment(token)(photo, caption));
+  }
+  return {
+    text: text +
+      (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
+        (x) => x,
+      ).join("\n"),
+    contact: contact && {
+      name: contactToFullName(contact),
+      phone: getBestPhoneFromContactShared(contact),
+    },
+    attachments,
+    ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
+  };
+};
 
 const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
   pipe(

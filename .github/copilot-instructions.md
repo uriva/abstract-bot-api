@@ -8,7 +8,8 @@ Avoid `let`
 
 Factor out logic, preferrable to module level functions.
 
-Avoid dynamic imports, use static imports instead.
+Avoid dynamic imports, i.e. no `import(...)`, use static imports instead, i.e.
+`import x from "y"`.
 
 Place imports at the top of the file.
 

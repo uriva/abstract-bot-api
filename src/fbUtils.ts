@@ -8,7 +8,6 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
     Object.entries(obj).filter(([, value]) => value !== undefined),
   ) as T;
 
-
 export const convertHtmlToFacebookFormat = (message: string): string =>
   message
     .replace(/<br\s*\/?>(?=)/gi, "\n")
@@ -18,7 +17,9 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
     .replace(
       /<a\s+href=[\"'“”](mailto:([^\"'“”\?]+)(?:\?[^\"'“”]*)?)[\"'“”]>(.*?)<\/a>/gi,
       (_m, _fullMailto: string, email: string, text: string) =>
-        text.toLowerCase() === email.toLowerCase() ? email : `${text} - ${email}`,
+        text.toLowerCase() === email.toLowerCase()
+          ? email
+          : `${text} - ${email}`,
     )
     // Support both straight and smart quotes around href attribute
     // Capture full URL in group 1 and the host/path without protocol in group 2
@@ -32,4 +33,3 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           : `${text} - ${linkNoProtocol}`;
       },
     );
-

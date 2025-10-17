@@ -10,6 +10,7 @@ import {
   injectSpinner,
   injectTyping,
   injectUserId,
+  type MediaAttachment,
   type TaskHandler,
 } from "./api.ts";
 import {
@@ -305,11 +306,41 @@ const getMessageId = (msg: MessengerWebhookMessage): string =>
 const getPageId = (msg: MessengerWebhookMessage): string =>
   msg.entry[0]?.id ?? "";
 
-const getImageUrl = (msg: MessengerWebhookMessage): string | undefined => {
+const getAttachments = (
+  msg: MessengerWebhookMessage,
+): MediaAttachment[] => {
   const attachments = msg.entry[0]?.messaging?.[0]?.message?.attachments;
-  if (!attachments) return undefined;
-  const imageAttachment = attachments.find((a) => a.type === "image");
-  return imageAttachment?.payload?.url;
+  if (!attachments) return [];
+
+  const result: MediaAttachment[] = [];
+  for (const attachment of attachments) {
+    if (attachment.type === "image" && attachment.payload.url) {
+      result.push({
+        kind: "file",
+        mimeType: "image/jpeg",
+        fileUri: attachment.payload.url,
+      });
+    } else if (attachment.type === "video" && attachment.payload.url) {
+      result.push({
+        kind: "file",
+        mimeType: "video/mp4",
+        fileUri: attachment.payload.url,
+      });
+    } else if (attachment.type === "audio" && attachment.payload.url) {
+      result.push({
+        kind: "file",
+        mimeType: "audio/mpeg",
+        fileUri: attachment.payload.url,
+      });
+    } else if (attachment.type === "file" && attachment.payload.url) {
+      result.push({
+        kind: "file",
+        mimeType: "application/octet-stream",
+        fileUri: attachment.payload.url,
+      });
+    }
+  }
+  return result;
 };
 
 export const fbMessengerInjectDepsAndRun =
@@ -319,7 +350,7 @@ export const fbMessengerInjectDepsAndRun =
     const pageId = getPageId(msg);
     const messageId = getMessageId(msg);
     const text = getMessageText(msg);
-    const imageUrl = getImageUrl(msg);
+    const attachments = getAttachments(msg);
 
     if (!senderId || !text) return Promise.resolve();
 
@@ -330,7 +361,7 @@ export const fbMessengerInjectDepsAndRun =
     return pipe(
       injectLastEvent(() => ({
         text,
-        ...(imageUrl ? { image: imageUrl } : {}),
+        attachments,
       })),
       injectMedium(() => "facebook-messenger"),
       injectMessageId(() => messageId),
