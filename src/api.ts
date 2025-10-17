@@ -18,6 +18,7 @@ export const injectBotPhone = botPhoneInjection.inject;
 
 type Medium =
   | "whatsapp"
+  | "facebook-messenger"
   | "instantdb"
   | "green-api"
   | "telegram"

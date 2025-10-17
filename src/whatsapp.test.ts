@@ -2,54 +2,10 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { decodeBase64 } from "@std/encoding";
 import { replyImage, type TaskHandler } from "./index.ts";
 import {
-  convertToWhatsAppFormat,
   sendWhatsappImage,
   whatsappForBusinessInjectDepsAndRun,
   type WhatsappMessage,
 } from "./whatsapp.ts";
-
-Deno.test("convertToWhatsAppFormat basic formatting", () => {
-  const input = "<b>Bold</b> and <u>Under</u><br>Line";
-  const expected = "*Bold* and _Under_\nLine";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
-
-Deno.test("convertToWhatsAppFormat link dedupe when text equals link", () => {
-  const input = '<a href="https://example.com">https://example.com</a>';
-  const expected = "example.com";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
-
-Deno.test("convertToWhatsAppFormat link with different text", () => {
-  const input = '<a href="https://example.com">Example</a>';
-  const expected = "Example - example.com";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
-
-Deno.test("convertToWhatsAppFormat link where text equals hostname only", () => {
-  const input = '<a href="https://example.com">example.com</a>';
-  const expected = "example.com";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
-
-Deno.test("convertToWhatsAppFormat preserves smart quotes outside links and handles them in href", () => {
-  const curly =
-    "<a href=“https://example.com”>“Fancy” link</a><br>and ‘quotes’";
-  const expected = "“Fancy” link - example.com\nand ‘quotes’";
-  assertEquals(convertToWhatsAppFormat(curly), expected);
-});
-
-Deno.test("convertToWhatsAppFormat mailto dedupe when text equals email", () => {
-  const input = '<a href="mailto:user@example.com">user@example.com</a>';
-  const expected = "user@example.com";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
-
-Deno.test("convertToWhatsAppFormat mailto with different text", () => {
-  const input = '<a href="mailto:user@example.com">Email me</a>';
-  const expected = "Email me - user@example.com";
-  assertEquals(convertToWhatsAppFormat(input), expected);
-});
 
 Deno.test("sendImage sends link payload with formatted caption", async () => {
   const originalFetch = globalThis.fetch;

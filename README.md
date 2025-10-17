@@ -15,8 +15,9 @@ This library provides a unified API over:
 
 1. telegram
 1. whatsapp
+1. facebook messenger
 1. green-api (unofficial whatsapp api)
-1. websocket (for web page chat) 1
+1. websocket (for web page chat)
 
 ## Installation
 
