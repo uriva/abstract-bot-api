@@ -40,6 +40,12 @@ export const convertToWhatsAppFormat = (message: string): string =>
     .replace(/<br\s*\/?>(?=)/gi, "\n")
     .replace(/<b>(.*?)<\/b>/gi, "*$1*")
     .replace(/<u>(.*?)<\/u>/gi, "_$1_")
+    // Handle mailto anchors: show just the email if text equals it, otherwise "text - email"
+    .replace(
+      /<a\s+href=[\"'“”](mailto:([^\"'“”\?]+)(?:\?[^\"'“”]*)?)[\"'“”]>(.*?)<\/a>/gi,
+      (_m, _fullMailto: string, email: string, text: string) =>
+        text.toLowerCase() === email.toLowerCase() ? email : `${text} - ${email}`,
+    )
     // Support both straight and smart quotes around href attribute
     // Capture full URL in group 1 and the host/path without protocol in group 2
     .replace(

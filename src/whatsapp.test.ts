@@ -39,6 +39,18 @@ Deno.test("convertToWhatsAppFormat preserves smart quotes outside links and hand
   assertEquals(convertToWhatsAppFormat(curly), expected);
 });
 
+Deno.test("convertToWhatsAppFormat mailto dedupe when text equals email", () => {
+  const input = '<a href="mailto:user@example.com">user@example.com</a>';
+  const expected = "user@example.com";
+  assertEquals(convertToWhatsAppFormat(input), expected);
+});
+
+Deno.test("convertToWhatsAppFormat mailto with different text", () => {
+  const input = '<a href="mailto:user@example.com">Email me</a>';
+  const expected = "Email me - user@example.com";
+  assertEquals(convertToWhatsAppFormat(input), expected);
+});
+
 Deno.test("sendImage sends link payload with formatted caption", async () => {
   const originalFetch = globalThis.fetch;
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
