@@ -137,14 +137,19 @@ export const withSpinner = <
 >(text: string, f: F): F =>
 // @ts-expect-error ts cannot infer
 async (...xs: Parameters<F>) => {
+  let finishedProcessing = false;
   let stopSpinning: (() => Promise<void>) | undefined;
   const spinnerTimeout = setTimeout(async () => {
     stopSpinning = await spinner(text);
-  }, 5000);
+    if (finishedProcessing) {
+      await stopSpinning();
+    }
+  }, 3000);
 
   try {
     return await f(...xs);
   } finally {
+    finishedProcessing = true;
     clearTimeout(spinnerTimeout);
     if (stopSpinning) await stopSpinning();
   }
