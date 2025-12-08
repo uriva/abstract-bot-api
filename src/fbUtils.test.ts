@@ -48,6 +48,21 @@ const testCases = [
     input: '<a href="https://example.com">"Fancy" link</a><br>and \'quotes\'',
     output: "\"Fancy\" link - example.com\nand 'quotes'",
   },
+  {
+    testName: "handles unordered lists",
+    input: "<ul><li>First item</li><li>Second item</li></ul>",
+    output: "* First item\n* Second item",
+  },
+  {
+    testName: "handles ordered lists",
+    input: "<ol><li>First step</li><li>Second step</li></ol>",
+    output: "1. First step\n2. Second step",
+  },
+  {
+    testName: "handles span tags",
+    input: "<span>Some text</span> and more",
+    output: "Some text and more",
+  },
 ];
 
 each(({ testName, input, output }) =>
