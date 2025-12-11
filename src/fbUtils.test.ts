@@ -73,6 +73,21 @@ const testCases = [
     input: "<h3>Header 3</h3>",
     output: "*Header 3*",
   },
+  {
+    testName: "handles unordered lists with newlines",
+    input: "<ul>\n<li>Item 1</li>\n<li>Item 2</li>\n</ul>",
+    output: "* Item 1\n* Item 2",
+  },
+  {
+    testName: "handles p tags",
+    input: "<p>Para 1</p><p>Para 2</p>",
+    output: "Para 1\nPara 2",
+  },
+  {
+    testName: "handles div tags",
+    input: "<div>Div 1</div><div>Div 2</div>",
+    output: "Div 1\nDiv 2",
+  },
 ];
 
 each(({ testName, input, output }) =>

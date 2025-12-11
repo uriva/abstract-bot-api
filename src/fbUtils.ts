@@ -14,17 +14,20 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
     .replace(/<b>(.*?)<\/b>/gi, "*$1*")
     .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gi, "*$1*")
     .replace(/<u>(.*?)<\/u>/gi, "_$1_")
+    .replace(/<\/(div|p)>/gi, "\n")
+    .replace(/<(div|p)[^>]*>/gi, "")
     .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
-    .replace(/<ul>(.*?)<\/ul>/gi, (_m, content: string) => {
-      const items = content.match(/<li>(.*?)<\/li>/gi) || [];
-      return items.map((item) => `* ${item.replace(/<\/?li>/gi, "")}`).join(
-        "\n",
-      );
+    .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
+      const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
+      return items.map((item) => `* ${item.replace(/<\/?li>/gi, "").trim()}`)
+        .join(
+          "\n",
+        );
     })
-    .replace(/<ol>(.*?)<\/ol>/gi, (_m, content: string) => {
-      const items = content.match(/<li>(.*?)<\/li>/gi) || [];
+    .replace(/<ol>([\s\S]*?)<\/ol>/gi, (_m, content: string) => {
+      const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
       return items.map((item, index) =>
-        `${index + 1}. ${item.replace(/<\/?li>/gi, "")}`
+        `${index + 1}. ${item.replace(/<\/?li>/gi, "").trim()}`
       ).join("\n");
     })
     // Handle mailto anchors: show just the email if text equals it, otherwise "text - email"
@@ -46,4 +49,5 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           ? linkNoProtocol
           : `${text} - ${linkNoProtocol}`;
       },
-    );
+    )
+    .trim();
