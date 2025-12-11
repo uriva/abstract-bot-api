@@ -63,6 +63,16 @@ const testCases = [
     input: "<span>Some text</span> and more",
     output: "Some text and more",
   },
+  {
+    testName: "handles unordered lists with Hebrew",
+    input: "<ul><li>פריט ראשון</li><li>פריט שני</li></ul>",
+    output: "* פריט ראשון\n* פריט שני",
+  },
+  {
+    testName: "handles h3 tags",
+    input: "<h3>Header 3</h3>",
+    output: "*Header 3*",
+  },
 ];
 
 each(({ testName, input, output }) =>

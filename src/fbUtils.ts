@@ -12,6 +12,7 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
   message
     .replace(/<br\s*\/?>(?=)/gi, "\n")
     .replace(/<b>(.*?)<\/b>/gi, "*$1*")
+    .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gi, "*$1*")
     .replace(/<u>(.*?)<\/u>/gi, "_$1_")
     .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
     .replace(/<ul>(.*?)<\/ul>/gi, (_m, content: string) => {
