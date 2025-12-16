@@ -21,9 +21,10 @@ type Field = {
 
 export type ForwardEmailWebhook = {
   from: Field;
-  to: Field;
-  text: string;
   html: string;
+  subject: string;
+  text: string;
+  to: Field;
 };
 
 const sendEmail = (key: string) => (email: Email) =>
