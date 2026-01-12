@@ -14,6 +14,11 @@ const testCases = [
     output: "*bold text* and _underlined_",
   },
   {
+    testName: "handles italic",
+    input: "<i>italic text</i>",
+    output: "_italic text_",
+  },
+  {
     testName: "handles email links",
     input: '<a href="mailto:test@example.com">test@example.com</a>',
     output: "test@example.com",
