@@ -123,6 +123,12 @@ const testCases = [
     output:
       'Here is the HTML snippet for your bot, *Rachel*. You can paste this into the *<head>* section of your website:\n\n```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["DUMMY_KEY"],"requesterId":"1234567890@c.us"}\n</script>```',
   },
+  {
+    testName: "handles code wrapping pre tags",
+    input:
+      "<code><pre>&lt;script&gt;function test() { return 42; }&lt;/script&gt;</pre></code>",
+    output: "```<script>function test() { return 42; }</script>```",
+  },
 ];
 
 each(({ testName, input, output }) =>
