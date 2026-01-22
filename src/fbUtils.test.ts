@@ -103,6 +103,12 @@ const testCases = [
     input: "<pre>function hello() { return 'world'; }</pre>",
     output: "```function hello() { return 'world'; }```",
   },
+  {
+    testName: "handles code with script tags and entities",
+    input:
+      '<code>&lt;script type="application/json"&gt;\ndata\n&lt;/script&gt;</code>',
+    output: '`&lt;script type="application/json"&gt;\ndata\n&lt;/script&gt;`',
+  },
 ];
 
 each(({ testName, input, output }) =>

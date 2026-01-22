@@ -11,18 +11,21 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
 export const convertHtmlToFacebookFormat = (message: string): string =>
   message
     .replace(/<br\s*\/?>(?=)/gi, "\n")
-    .replace(/<b>(.*?)<\/b>/gi, "*$1*")
-    .replace(/<i>(.*?)<\/i>/gi, "_$1_")
-    .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gi, "*$1*")
-    .replace(/<u>(.*?)<\/u>/gi, "_$1_")
-    .replace(/<code>(.*?)<\/code>/gi, "`$1`")
-    .replace(/<pre>(.*?)<\/pre>/gi, "```$1```")
-    .replace(/<\/(div|p)>/gi, "\n")
+    .replace(/<b>(.*?)<\/b>/gis, "*$1*")
+    .replace(/<i>(.*?)<\/i>/gis, "_$1_")
+    .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gis, "*$1*")
+    .replace(/<u>(.*?)<\/u>/gis, "_$1_")
+    .replace(/<code>(.*?)<\/code>/gis, "`$1`")
+    .replace(/<pre>(.*?)<\/pre>/gis, "```$1```")
+    .replace(/<\/(div|p|code|pre)>/gi, (tag) =>
+      tag.includes("code") || tag.includes("pre") ? "" : "\n")
     .replace(/<(div|p)[^>]*>/gi, "")
     .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
     .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
       const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
-      return items.map((item) => `* ${item.replace(/<\/?li>/gi, "").trim()}`)
+      return items.map((item) =>
+        `* ${item.replace(/<\/?li>/gi, "").trim()}`
+      )
         .join(
           "\n",
         );
