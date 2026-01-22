@@ -25,7 +25,12 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
       .replace(/<i>(.*?)<\/i>/gis, "_$1_")
       .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gis, "*$1*")
       .replace(/<u>(.*?)<\/u>/gis, "_$1_")
-      .replace(/<code>(.*?)<\/code>/gis, "`$1`")
+      .replace(/<code>(.*?)<\/code>/gis, (_, content) => {
+        if (content.includes("\n")) {
+          return `\`\`\`${content}\`\`\``;
+        }
+        return `\`${content}\``;
+      })
       .replace(/<pre>(.*?)<\/pre>/gis, "```$1```")
       .replace(
         /<\/(div|p|code|pre)>/gi,
