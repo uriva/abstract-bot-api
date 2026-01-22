@@ -112,16 +112,16 @@ const testCases = [
   {
     testName: "handles full Rachel bot widget code",
     input:
-      '<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["***REMOVED***"],"requesterId":"***REMOVED***"}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code>',
+      '<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code>',
     output:
-      '```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["***REMOVED***"],"requesterId":"***REMOVED***"}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
+      '```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
   },
   {
     testName: "message with code block and entities",
     input:
-      'Here is the HTML snippet for your bot, *Rachel*. You can paste this into the *&lt;head&gt;* section of your website:\n\n<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["test"],"requesterId":"123@c.us"}\n&lt;/script&gt;</code>',
+      'Here is the HTML snippet for your bot, *Rachel*. You can paste this into the *&lt;head&gt;* section of your website:\n\n<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["DUMMY_KEY"],"requesterId":"1234567890@c.us"}\n&lt;/script&gt;</code>',
     output:
-      'Here is the HTML snippet for your bot, *Rachel*. You can paste this into the *<head>* section of your website:\n\n```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["test"],"requesterId":"123@c.us"}\n</script>```',
+      'Here is the HTML snippet for your bot, *Rachel*. You can paste this into the *<head>* section of your website:\n\n```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["DUMMY_KEY"],"requesterId":"1234567890@c.us"}\n</script>```',
   },
 ];
 
