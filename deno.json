@@ -1,6 +1,6 @@
 {
   "name": "@uri/abstract-bot-api",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
