@@ -107,7 +107,7 @@ const testCases = [
     testName: "handles code with script tags and entities",
     input:
       '<code>&lt;script type="application/json"&gt;\ndata\n&lt;/script&gt;</code>',
-    output: '`&lt;script type="application/json"&gt;\ndata\n&lt;/script&gt;`',
+    output: '`<script type="application/json">\ndata\n</script>`',
   },
 ];
 
