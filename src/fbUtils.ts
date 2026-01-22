@@ -15,6 +15,8 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
     .replace(/<i>(.*?)<\/i>/gi, "_$1_")
     .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gi, "*$1*")
     .replace(/<u>(.*?)<\/u>/gi, "_$1_")
+    .replace(/<code>(.*?)<\/code>/gi, "`$1`")
+    .replace(/<pre>(.*?)<\/pre>/gi, "```$1```")
     .replace(/<\/(div|p)>/gi, "\n")
     .replace(/<(div|p)[^>]*>/gi, "")
     .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")

@@ -93,6 +93,16 @@ const testCases = [
     input: "<div>Div 1</div><div>Div 2</div>",
     output: "Div 1\nDiv 2",
   },
+  {
+    testName: "handles code tags",
+    input: "Use <code>const x = 5;</code> for constants",
+    output: "Use `const x = 5;` for constants",
+  },
+  {
+    testName: "handles pre tags",
+    input: "<pre>function hello() { return 'world'; }</pre>",
+    output: "```function hello() { return 'world'; }```",
+  },
 ];
 
 each(({ testName, input, output }) =>
