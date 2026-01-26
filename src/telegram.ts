@@ -5,6 +5,7 @@ import type {
   ParseMode,
   PhotoSize,
   Update,
+  Voice,
 } from "@grammyjs/types";
 import { encodeBase64 } from "@std/encoding";
 import type { Injector } from "@uri/inject";
@@ -382,6 +383,14 @@ async (
   return { kind: "inline", mimeType, dataBase64, caption };
 };
 
+const voiceAttachment =
+  (token: string) => async (voice: Voice): Promise<MediaAttachment> => {
+    const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
+      voice.file_id,
+    );
+    return { kind: "inline", mimeType, dataBase64 };
+  };
+
 const sharedOwnPhone = (
   ownId: number,
   { user_id, phone_number }: Contact,
@@ -409,11 +418,14 @@ export const getBestPhoneFromContactShared = ({
 
 export const telegramNormalizeEvent = async (
   token: string,
-  { text, entities, contact, photo, caption, from }: Message,
+  { text, entities, contact, photo, caption, voice, from }: Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
   if (photo) {
     attachments.push(await photoAttachment(token)(photo, caption));
+  }
+  if (voice) {
+    attachments.push(await voiceAttachment(token)(voice));
   }
   return {
     text: text +

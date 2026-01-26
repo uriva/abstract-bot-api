@@ -320,6 +320,15 @@ type VideoMessage = CommonProps & {
   };
 };
 
+type VoiceMessage = CommonProps & {
+  type: "audio";
+  audio: {
+    id: string;
+    mime_type: string;
+    sha256: string;
+  };
+};
+
 type InnerMessage =
   | ButtonReply
   | ContactsMessage
@@ -327,7 +336,8 @@ type InnerMessage =
   | ReactionMessage
   | RequestWelcome
   | TextMessage
-  | VideoMessage;
+  | VideoMessage
+  | VoiceMessage;
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 export type WhatsappMessage = {
@@ -396,6 +406,8 @@ const messageText = pipe(
       ? msg.reaction.emoji
       : msg.type === "video"
       ? msg.video.caption
+      : msg.type === "audio"
+      ? ""
       : ""
   ),
   filter((x: string) => x),
@@ -485,6 +497,13 @@ const messageToAttachements =
         mimeType: meta.mimeType,
         dataBase64: meta.dataBase64,
         caption: m.video.caption,
+      }];
+    } else if (m.type === "audio" && m.audio?.id) {
+      const meta = await getMediaMetaAndData(accessToken, m.audio.id);
+      return [{
+        kind: "inline",
+        mimeType: meta.mimeType,
+        dataBase64: meta.dataBase64,
       }];
     }
     return [];
