@@ -180,7 +180,9 @@ Deno.test("replyImage via whatsapp handler sends image", async () => {
   const message: WhatsappMessage = {
     object: "whatsapp_business_account",
     entry: [{
+      id: "entry-id",
       changes: [{
+        field: "messages",
         value: {
           messaging_product: "whatsapp",
           metadata: {
@@ -278,7 +280,9 @@ Deno.test("inbound image populates attachments array", async () => {
   const message: WhatsappMessage = {
     object: "whatsapp_business_account",
     entry: [{
+      id: "entry-id",
       changes: [{
+        field: "messages",
         value: {
           messaging_product: "whatsapp",
           metadata: {

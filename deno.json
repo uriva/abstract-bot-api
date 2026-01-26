@@ -11,6 +11,7 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "@uri/inject": "jsr:@uri/inject@0.0.1",
     "@std/io": "jsr:@std/io@^0.225.2",
+    "@whatsapp-cloudapi/types": "npm:@whatsapp-cloudapi/types@4.0.0",
     "gamla": "npm:gamla@135.0.0",
     "html-to-text": "npm:html-to-text@9.0.5",
     "telegraf": "npm:telegraf@^4.16.3",

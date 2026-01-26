@@ -48,7 +48,8 @@
     "npm:@green-api/whatsapp-api-client@0.4.0-0": "0.4.0-0",
     "npm:@green-api/whatsapp-api-client@0.4.4": "0.4.4",
     "npm:@ts-morph/bootstrap@0.22": "0.22.0",
-    "npm:@types/node@*": "22.5.4",
+    "npm:@types/node@*": "18.11.19",
+    "npm:@whatsapp-cloudapi/types@4.0.0": "4.0.0",
     "npm:axios@*": "1.7.7",
     "npm:code-block-writer@^13.0.1": "13.0.3",
     "npm:gamla@135.0.0": "135.0.0",
@@ -357,11 +358,11 @@
         "path-browserify"
       ]
     },
-    "@types/node@22.5.4": {
-      "integrity": "sha512-FDuKUJQm/ju9fT/SeX/6+gBzoPzlVCzfzmGkwKvRHQVxi4BntVbyIwf6a4Xn62mrvndLiml6z/UBXIdEVjQLXg==",
-      "dependencies": [
-        "undici-types"
-      ]
+    "@types/node@18.11.19": {
+      "integrity": "sha512-YUgMWAQBWLObABqrvx8qKO1enAvBUdjZOAWQ5grBAkp5LQv45jBvYKZ3oFS9iKRCQyFjqw6iuEa1vmFqtxYLZw=="
+    },
+    "@whatsapp-cloudapi/types@4.0.0": {
+      "integrity": "sha512-t/SYp67EFI5TEcm1SMFdNNUnS0tTTcCBDIlILokGe2V7WAZ62ux8ynwMmmL24lsm2e1JQvwN3uN5ERbYlNXZQQ=="
     },
     "abort-controller@3.0.0": {
       "integrity": "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==",
@@ -684,9 +685,6 @@
     "tr46@0.0.3": {
       "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="
     },
-    "undici-types@6.19.8": {
-      "integrity": "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="
-    },
     "webidl-conversions@3.0.1": {
       "integrity": "sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ=="
     },
@@ -854,6 +852,7 @@
       "jsr:@uri/inject@0.0.1",
       "npm:@grammyjs/types@3.22.2",
       "npm:@green-api/whatsapp-api-client@0.4.4",
+      "npm:@whatsapp-cloudapi/types@4.0.0",
       "npm:gamla@135.0.0",
       "npm:html-to-text@9.0.5",
       "npm:telegraf@^4.16.3",

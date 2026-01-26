@@ -1,4 +1,8 @@
 import { decodeBase64, encodeBase64 } from "@std/encoding";
+import type {
+  WebhookMessage,
+  WebhookPayload,
+} from "@whatsapp-cloudapi/types/webhook";
 import {
   anymap,
   coerce,
@@ -38,6 +42,42 @@ import type {
   TaskHandler,
 } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
+
+// Custom types for message types not in the library
+type ContactsMessage = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "contacts";
+  contacts: {
+    name: {
+      formatted_name: string;
+      first_name?: string;
+      last_name?: string;
+      middle_name?: string;
+      suffix?: string;
+      prefix?: string;
+    };
+    phones?: [{
+      phone: string;
+      wa_id?: string;
+      type?: "HOME" | "WORK";
+    }];
+  }[];
+};
+
+type ReactionMessage = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "reaction";
+  reaction: { message_id: string; emoji: string };
+};
+
+type ExtendedWebhookMessage =
+  | WebhookMessage
+  | ContactsMessage
+  | ReactionMessage;
 
 const apiVersion = "v21.0";
 
@@ -236,123 +276,8 @@ export const sendWhatsappTemplate =
       return (await response.json()) as SentMessageResponse;
     });
 
-type CommonProps = { from: string; id: string; timestamp: string };
-
-type TextMessage = CommonProps & {
-  type: "text";
-  text: { body: string };
-  context?: { from: string; id: string };
-};
-
-type ReactionMessage = CommonProps & {
-  type: "reaction";
-  reaction: { message_id: string; emoji: string };
-};
-
-type ButtonReply = CommonProps & {
-  type: "button";
-  // deno-lint-ignore no-explicit-any
-  button: { payload: any; text: string };
-};
-
-type ContactsMessage = CommonProps & {
-  type: "contacts";
-  contacts: {
-    "addresses": [{
-      "city": string;
-      "country": string;
-      "country_code": string;
-      "state": string;
-      "street": string;
-      "type": string;
-      "zip": string;
-    }];
-    "birthday": string;
-    "emails": [{
-      "email": string;
-      "type": "HOME" | "WORK";
-    }];
-    "name": {
-      "formatted_name": string;
-      "first_name": string;
-      "last_name": string;
-      "middle_name": string;
-      "suffix": string;
-      "prefix": string;
-    };
-    "org": {
-      "company": string;
-      "department": string;
-      "title": string;
-    };
-    "phones": [{
-      "phone": string;
-      "wa_id": string;
-      "type": "HOME" | "WORK";
-    }];
-    "urls": [{
-      "url": string;
-      "type": "HOME" | "WORK";
-    }];
-  }[];
-};
-
-type RequestWelcome = CommonProps & {
-  type: "request_welcome";
-};
-
-type ImageMessage = CommonProps & {
-  type: "image";
-  image: {
-    caption: string;
-    id: string;
-    mime_type: "image/jpeg";
-    sha256: string;
-  };
-};
-type VideoMessage = CommonProps & {
-  type: "video";
-  video: {
-    caption: string;
-    id: string;
-    mime_type: string;
-    sha256: string;
-  };
-};
-
-type VoiceMessage = CommonProps & {
-  type: "audio";
-  audio: {
-    id: string;
-    mime_type: string;
-    sha256: string;
-  };
-};
-
-type InnerMessage =
-  | ButtonReply
-  | ContactsMessage
-  | ImageMessage
-  | ReactionMessage
-  | RequestWelcome
-  | TextMessage
-  | VideoMessage
-  | VoiceMessage;
-
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
-export type WhatsappMessage = {
-  object: string;
-  entry: {
-    changes: {
-      value: {
-        messaging_product: "whatsapp";
-        metadata: { phone_number_id: string; display_phone_number: string };
-        contacts?: { profile: { name: string }; wa_id: string }[];
-        messages?: InnerMessage[];
-      };
-    }[];
-  }[];
-};
+export type WhatsappMessage = WebhookPayload;
 
 type WebhookVerification = {
   "hub.mode": string;
@@ -360,34 +285,38 @@ type WebhookVerification = {
   "hub.challenge": string;
 };
 
-const innerMessageTypeEquals = (y: string) => (x: InnerMessage) =>
+const innerMessageTypeEquals = (y: string) => (x: ExtendedWebhookMessage) =>
   "type" in x && x.type === y;
 
-const innerMessages = (msg: WhatsappMessage) =>
+const innerMessages = (msg: WhatsappMessage): ExtendedWebhookMessage[] =>
   msg.entry[0].changes[0].value.messages || [];
 
 const fromNumber = pipe(
   innerMessages,
-  (messages: InnerMessage[]) => messages?.[0].from,
+  (messages: ExtendedWebhookMessage[]) => messages?.[0].from,
 );
 
 const messageId = pipe(
   innerMessages,
-  (msgs: InnerMessage[]) => msgs[0].id,
+  (msgs: ExtendedWebhookMessage[]) => msgs[0].id,
 );
 
 const referenceId = pipe(
   innerMessages,
   juxtCat(
     pipe(
-      filter((msg: InnerMessage): msg is TextMessage =>
+      filter((msg: ExtendedWebhookMessage) =>
         msg.type === "text" && !!msg.context
       ),
-      map((x: TextMessage) => x.context?.id || ""),
+      map((x: ExtendedWebhookMessage) =>
+        x.type === "text" && x.context?.id || ""
+      ),
     ),
     pipe(
-      filter((msg: InnerMessage) => msg.type === "reaction"),
-      map(({ reaction: { message_id } }: ReactionMessage) => message_id),
+      filter((msg: ExtendedWebhookMessage) => msg.type === "reaction"),
+      map((msg: ExtendedWebhookMessage) =>
+        msg.type === "reaction" ? msg.reaction.message_id : ""
+      ),
     ),
   ),
   ([x]: string[]) => x || "",
@@ -395,19 +324,19 @@ const referenceId = pipe(
 
 const messageText = pipe(
   innerMessages,
-  map((msg: InnerMessage): string =>
+  map((msg: ExtendedWebhookMessage): string =>
     msg.type === "text"
       ? msg.text.body
       : msg.type === "button"
       ? msg.button.text
       : msg.type === "image"
-      ? msg.image.caption
-      : msg.type === "reaction"
-      ? msg.reaction.emoji
+      ? msg.image.caption ?? ""
       : msg.type === "video"
-      ? msg.video.caption
+      ? msg.video.caption ?? ""
       : msg.type === "audio"
       ? ""
+      : msg.type === "reaction"
+      ? msg.reaction.emoji
       : ""
   ),
   filter((x: string) => x),
@@ -481,7 +410,7 @@ const getMediaMetaAndData = async (
 
 const messageToAttachements =
   (accessToken: string) =>
-  async (m: InnerMessage): Promise<MediaAttachment[]> => {
+  async (m: ExtendedWebhookMessage): Promise<MediaAttachment[]> => {
     if (m.type === "image" && m.image?.id) {
       const meta = await getMediaMetaAndData(accessToken, m.image.id);
       return [{
@@ -522,7 +451,10 @@ const getContacts = (
     x.type === "contacts" ? x.contacts : []
   );
   if (empty(contacts)) return {};
-  const [{ phones: [{ phone }], name: { formatted_name: name } }] = contacts;
+  const contact = contacts[0];
+  const phone = contact.phones?.[0]?.phone;
+  const name = contact.name.formatted_name;
+  if (!phone) return {};
   return { contact: { phone, name } };
 };
 
