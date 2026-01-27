@@ -388,7 +388,11 @@ const voiceAttachment =
     const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
       voice.file_id,
     );
-    return { kind: "inline", mimeType, dataBase64 };
+    return {
+      kind: "inline",
+      mimeType: voice.mime_type || mimeType,
+      dataBase64,
+    };
   };
 
 const sharedOwnPhone = (
