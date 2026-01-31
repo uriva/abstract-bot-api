@@ -5,7 +5,6 @@ import type {
   ParseMode,
   PhotoSize,
   Update,
-  Voice,
 } from "@grammyjs/types";
 import { encodeBase64 } from "@std/encoding";
 import type { Injector } from "@uri/inject";
@@ -353,6 +352,38 @@ export const setTelegramWebhook = (
 ): Promise<Response> =>
   fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
 
+const getMimeTypeFromExtension = (filePath: string): string => {
+  const ext = filePath.split(".").pop()?.toLowerCase() || "";
+  const mimeTypes: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    ogg: "audio/ogg",
+    wav: "audio/wav",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    pdf: "application/pdf",
+    txt: "text/plain",
+    zip: "application/zip",
+    json: "application/json",
+    xml: "application/xml",
+    csv: "text/csv",
+    doc: "application/msword",
+    docx:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx:
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+};
+
 const fileIdToContentBase64AndMime =
   (token: string) =>
   async (fileId: string): Promise<{ dataBase64: string; mimeType: string }> => {
@@ -366,9 +397,7 @@ const fileIdToContentBase64AndMime =
     );
     if (!fileResponse.ok) throw new Error("could not fetch file");
     const dataBase64 = encodeBase64(await fileResponse.arrayBuffer());
-    const mimeType = fileResponse.headers.get("content-type") ||
-      "application/octet-stream";
-    return { dataBase64, mimeType };
+    return { dataBase64, mimeType: getMimeTypeFromExtension(file_path) };
   };
 
 const photoAttachment = (token: string) =>
@@ -383,17 +412,19 @@ async (
   return { kind: "inline", mimeType, dataBase64, caption };
 };
 
-const voiceAttachment =
-  (token: string) => async (voice: Voice): Promise<MediaAttachment> => {
-    const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
-      voice.file_id,
-    );
-    return {
-      kind: "inline",
-      mimeType: voice.mime_type || mimeType,
-      dataBase64,
-    };
+const mediaFileAttachment = (token: string) =>
+async (
+  file: { file_id: string; mime_type?: string },
+): Promise<MediaAttachment> => {
+  const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
+    file.file_id,
+  );
+  return {
+    kind: "inline",
+    mimeType: file.mime_type || mimeType,
+    dataBase64,
   };
+};
 
 const sharedOwnPhone = (
   ownId: number,
@@ -422,14 +453,17 @@ export const getBestPhoneFromContactShared = ({
 
 export const telegramNormalizeEvent = async (
   token: string,
-  { text, entities, contact, photo, caption, voice, from }: Message,
+  { text, entities, contact, photo, caption, voice, from, document }: Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
   if (photo) {
     attachments.push(await photoAttachment(token)(photo, caption));
   }
   if (voice) {
-    attachments.push(await voiceAttachment(token)(voice));
+    attachments.push(await mediaFileAttachment(token)(voice));
+  }
+  if (document) {
+    attachments.push(await mediaFileAttachment(token)(document));
   }
   return {
     text: text +
