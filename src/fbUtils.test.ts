@@ -137,6 +137,11 @@ const testCases = [
       '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
   },
   {
+    testName: "handles link with style attribute",
+    input: '<a href="https://example.com" style="color:red">Click Here</a>',
+    output: "Click Here - example.com",
+  },
+  {
     testName: "handles pre>code wrapping with script tags",
     input:
       "<pre><code>&lt;script type=&quot;application/json&quot; id=&quot;alice-and-bot-params&quot;&gt;\n  {bla:1}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById('alice-and-bot-params').textContent);\n  const s = document.createElement('script');\n  s.src = &quot;https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js&quot;;\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code></pre>",
