@@ -20,10 +20,10 @@ type Medium =
   | "email"
   | "whatsapp"
   | "facebook-messenger"
-  | "instantdb"
   | "green-api"
   | "telegram"
-  | "websocket"
+  | "supergreen/whatsapp"
+  | "supergreen/telegram"
   | "no-medium";
 
 const mediumInjection: Injection<() => Medium> = context((): Medium =>

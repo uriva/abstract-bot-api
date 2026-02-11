@@ -56,9 +56,7 @@
     "npm:html-to-text@9.0.5": "9.0.5",
     "npm:js-sha256@*": "0.11.0",
     "npm:sjcl@*": "1.0.8",
-    "npm:telegraf@^4.16.3": "4.16.3",
-    "npm:ws@*": "8.18.3",
-    "npm:ws@8.18.3": "8.18.3"
+    "npm:telegraf@^4.16.3": "4.16.3"
   },
   "jsr": {
     "@david/code-block-writer@13.0.3": {
@@ -701,9 +699,6 @@
         "isexe"
       ],
       "bin": true
-    },
-    "ws@8.18.3": {
-      "integrity": "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg=="
     }
   },
   "remote": {
@@ -855,8 +850,7 @@
       "npm:@whatsapp-cloudapi/types@4.0.0",
       "npm:gamla@135.0.0",
       "npm:html-to-text@9.0.5",
-      "npm:telegraf@^4.16.3",
-      "npm:ws@8.18.3"
+      "npm:telegraf@^4.16.3"
     ]
   }
 }

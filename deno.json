@@ -14,8 +14,7 @@
     "@whatsapp-cloudapi/types": "npm:@whatsapp-cloudapi/types@4.0.0",
     "gamla": "npm:gamla@135.0.0",
     "html-to-text": "npm:html-to-text@9.0.5",
-    "telegraf": "npm:telegraf@^4.16.3",
-    "ws": "npm:ws@8.18.3"
+    "telegraf": "npm:telegraf@^4.16.3"
   },
   "githooks": {
     "$schema": "https://deno.land/x/githooks/schema.json",
