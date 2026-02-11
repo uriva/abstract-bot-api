@@ -447,7 +447,7 @@ const getText = (msg: WhatsappMessage): string =>
 
 const getContacts = (
   msg: WhatsappMessage,
-): Record<string, never> | { contact: ConversationEvent["contact"] } => {
+): Record<string, never> | { contact: { phone: string; name: string } } => {
   const contacts = innerMessages(msg).flatMap((x) =>
     x.type === "contacts" ? x.contacts : []
   );
@@ -469,16 +469,40 @@ const editedMessageId = (msg: WhatsappMessage): string | undefined => {
   return undefined;
 };
 
+const buildWhatsappEvent = async (
+  token: string,
+  msg: WhatsappMessage,
+): Promise<ConversationEvent> => {
+  const firstMsg = innerMessages(msg)[0];
+  if (firstMsg.type === "reaction") {
+    return {
+      kind: "reaction",
+      reaction: (firstMsg as ReactionMessage).reaction.emoji,
+      onMessageId: (firstMsg as ReactionMessage).reaction.message_id,
+    };
+  }
+  const editId = editedMessageId(msg);
+  if (editId) {
+    return {
+      kind: "edit",
+      text: getText(msg),
+      onMessageId: editId,
+      attachments: await getAttachments(token)(msg),
+    };
+  }
+  return {
+    kind: "message",
+    text: getText(msg),
+    attachments: await getAttachments(token)(msg),
+    ...getContacts(msg),
+  };
+};
+
 export const whatsappForBusinessInjectDepsAndRun =
   (token: string, doTask: TaskHandler) =>
   async (msg: WhatsappMessage): Promise<void> => {
     if (!nonempty(innerMessages(msg))) return Promise.resolve();
-    const event: ConversationEvent = {
-      text: getText(msg),
-      attachments: await getAttachments(token)(msg),
-      ...getContacts(msg),
-      editedMessageId: editedMessageId(msg),
-    };
+    const event = await buildWhatsappEvent(token, msg);
     const send = sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg));
     const sendImageReply = sendWhatsappImage(token, toNumberId(msg))(
       fromNumber(msg),

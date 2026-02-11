@@ -360,6 +360,7 @@ export const fbMessengerInjectDepsAndRun =
 
     return pipe(
       injectLastEvent(() => ({
+        kind: "message" as const,
         text,
         attachments,
       })),

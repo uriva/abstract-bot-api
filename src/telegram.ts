@@ -467,6 +467,7 @@ export const telegramNormalizeEvent = async (
     attachments.push(await mediaFileAttachment(token)(document));
   }
   return {
+    kind: "message",
     text: text +
       (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
         (x) => x,
@@ -521,15 +522,36 @@ export const makeTelegramHandler = (
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: async (update: Update) => {
+    if (update.message_reaction) {
+      const { message_reaction } = update;
+      const first = message_reaction.new_reaction[0];
+      const emoji = first?.type === "emoji" ? first.emoji : "";
+      if (!emoji) return Promise.resolve();
+      const event: ConversationEvent = {
+        kind: "reaction",
+        reaction: emoji,
+        onMessageId: message_reaction.message_id.toString(),
+      };
+      return pipe(
+        telegramInjectDeps(
+          telegramToken,
+          message_reaction.user?.id ?? message_reaction.chat.id,
+        ),
+        injectLastEvent(() => event),
+      )(doTask)();
+    }
     const message = update.message ?? update.edited_message;
     if (!message) return Promise.resolve();
-    const normalizedEvent = await telegramNormalizeEvent(
-      telegramToken,
-      message,
-    );
-    const event = update.edited_message
-      ? { ...normalizedEvent, editedMessageId: message.message_id.toString() }
-      : normalizedEvent;
+    const normalized = await telegramNormalizeEvent(telegramToken, message);
+    const event: ConversationEvent =
+      update.edited_message && normalized.kind === "message"
+        ? {
+          kind: "edit",
+          text: normalized.text ?? "",
+          onMessageId: message.message_id.toString(),
+          attachments: normalized.attachments,
+        }
+        : normalized;
     return pipe(
       telegramInjectDeps(telegramToken, message.from.id),
       injectLastEvent(() => event),

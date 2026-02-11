@@ -309,6 +309,7 @@ Deno.test("inbound image populates attachments array", async () => {
 
   const handler: TaskHandler = () => {
     const event = lastEvent();
+    if (event.kind !== "message") throw new Error("expected message event");
     assertEquals(event.text, "Check this out");
     assertEquals(event.attachments?.length, 1);
     assertEquals(event.attachments?.[0].kind, "inline");

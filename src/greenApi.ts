@@ -2,6 +2,7 @@ import greenApi from "@green-api/whatsapp-api-client";
 import { pipe, replace } from "gamla";
 
 import {
+  type ConversationEvent,
   injectBotPhone,
   injectFileLimitMB,
   injectLastEvent,
@@ -99,18 +100,22 @@ export const registerWebhook = (
 ): Promise<greenApi.Settings.SetSettings> =>
   greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
+const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent =>
+  msg.typeWebhook === "incomingMessageEdited"
+    ? { kind: "edit", text: messageText(msg), onMessageId: msg.idMessage }
+    : { kind: "message", text: messageText(msg) };
+
 const communications = (
-  text: string,
+  event: ConversationEvent,
   api: ReturnType<typeof greenApi.restAPI>,
   botPhone: string,
   msgId: string,
   referenceId: string | undefined,
   userId: string,
   send: (txt: string) => Promise<string>,
-  editedMessageId: string | undefined,
 ) => {
   const f = pipe(
-    injectLastEvent(() => ({ text, editedMessageId })),
+    injectLastEvent(() => event),
     injectBotPhone(() => botPhone),
     injectMedium(() => "green-api"),
     injectMessageId(() => msgId),
@@ -148,13 +153,12 @@ export const greenApiHandler = (
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: (msg: GreenApiMessage) =>
     communications(
-      messageText(msg),
+      buildGreenApiEvent(msg),
       greenApi.restAPI(credentials),
       rewriteNumber(msg.instanceData.wid),
       msg.idMessage,
       greenApiReferenceId(msg),
       messageSender(msg),
       sendGreenApiMessage(credentials)(messageSender(msg)),
-      msg.typeWebhook === "incomingMessageEdited" ? msg.idMessage : undefined,
     )(doTask)(),
 });

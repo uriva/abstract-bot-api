@@ -70,9 +70,8 @@ export const reply = replyInjection.access;
 
 const editMessageInjection: Injection<
   (id: string, text: string) => Promise<void>
-> = context((id: string, text: string): Promise<void> => {
-  console.log("Edit message:", id, text);
-  return Promise.resolve();
+> = context((_id: string, _text: string): Promise<void> => {
+  throw new Error("editMessage not supported by this connector");
 });
 export const injectEditMessage = editMessageInjection.inject;
 export const editMessage = editMessageInjection.access;
@@ -169,13 +168,28 @@ export type MediaAttachment =
   | { kind: "inline"; mimeType: string; dataBase64: string; caption?: string }
   | { kind: "file"; mimeType: string; fileUri: string; caption?: string };
 
-export type ConversationEvent = {
+type MessageEvent = {
+  kind: "message";
   text?: string;
   contact?: { phone: string; name: string };
   attachments?: MediaAttachment[];
   ownPhone?: string;
-  editedMessageId?: string;
 };
+
+type EditEvent = {
+  kind: "edit";
+  text: string;
+  onMessageId: string;
+  attachments?: MediaAttachment[];
+};
+
+type ReactionEvent = {
+  kind: "reaction";
+  reaction: string;
+  onMessageId: string;
+};
+
+export type ConversationEvent = MessageEvent | EditEvent | ReactionEvent;
 
 // deno-lint-ignore no-explicit-any
 export type TaskHandler = () => any;
