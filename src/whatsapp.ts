@@ -20,6 +20,7 @@ import {
 } from "gamla";
 import {
   injectBotPhone,
+  injectEditMessage,
   injectLastEvent,
   injectMedium,
   injectMessageId,
@@ -480,6 +481,9 @@ export const whatsappForBusinessInjectDepsAndRun =
       injectSpinner(pipe(send, (_) => () => Promise.resolve())),
       injectReply(send),
       injectReplyImage(sendImageReply),
+      injectEditMessage((msgId: string, text: string) =>
+        editWhatsappMessage(token, toNumberId(msg))(msgId, text)
+      ),
       injectTyping(() =>
         sendWhatsappTypingIndicator(token, toNumberId(msg))(
           messageId(msg),
@@ -500,6 +504,25 @@ export const whatsappBusinessHandler = (
   predicate: ({ url, method }) => url === path && method === "POST",
   handler: whatsappForBusinessInjectDepsAndRun(token, doTask),
 });
+
+const editWhatsappMessage =
+  (accessToken: string, fromNumberId: string) =>
+  (messageId: string, text: string): Promise<void> =>
+    fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          message_id: messageId,
+          type: "text",
+          text: { body: convertToWhatsAppFormat(text) },
+        }),
+        headers: makeHeaders(accessToken),
+      },
+    ).then(async (response) => {
+      if (!response.ok) throw new Error(await response.text());
+    });
 
 const sendWhatsappTypingIndicator =
   (accessToken: string, fromNumberId: string) => (messageId: string) =>

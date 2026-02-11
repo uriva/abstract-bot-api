@@ -14,6 +14,7 @@ import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
 import {
   type ConversationEvent,
+  injectEditMessage,
   injectFileLimitMB,
   injectLastEvent,
   injectMedium,
@@ -488,6 +489,15 @@ const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
     injectReply((t: string) =>
       // @ts-ignore error in node but not in deno
       sendTelegramMessage(telegramToken)(id, t)
+    ),
+    injectEditMessage((msgId: string, text: string) =>
+      tgm.editMessageText(
+        id,
+        Number(msgId),
+        undefined,
+        sanitizeTelegramHtml(text),
+      )
+        .then(() => {})
     ),
     injectProgressBar(telegramProgressBar(tgm, id)),
     injectSpinner(makeSpinner(tgm, id)),

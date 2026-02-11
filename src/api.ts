@@ -68,6 +68,15 @@ const replyInjection: Injection<(msg: string) => Promise<string>> = context(
 export const injectReply = replyInjection.inject;
 export const reply = replyInjection.access;
 
+const editMessageInjection: Injection<
+  (id: string, text: string) => Promise<void>
+> = context((id: string, text: string): Promise<void> => {
+  console.log("Edit message:", id, text);
+  return Promise.resolve();
+});
+export const injectEditMessage = editMessageInjection.inject;
+export const editMessage = editMessageInjection.access;
+
 export type ImageReplyPayload =
   | { link: string; caption?: string }
   | {
