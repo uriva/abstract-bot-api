@@ -520,15 +520,19 @@ export const makeTelegramHandler = (
 ): Endpoint<Update> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
-  handler: async ({ message }: Update) => {
+  handler: async (update: Update) => {
+    const message = update.message ?? update.edited_message;
     if (!message) return Promise.resolve();
     const normalizedEvent = await telegramNormalizeEvent(
       telegramToken,
       message,
     );
+    const event = update.edited_message
+      ? { ...normalizedEvent, editedMessageId: message.message_id.toString() }
+      : normalizedEvent;
     return pipe(
       telegramInjectDeps(telegramToken, message.from.id),
-      injectLastEvent(() => normalizedEvent),
+      injectLastEvent(() => event),
     )(doTask)();
   },
 });

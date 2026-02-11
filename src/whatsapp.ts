@@ -459,6 +459,16 @@ const getContacts = (
   return { contact: { phone, name } };
 };
 
+const editedMessageId = (msg: WhatsappMessage): string | undefined => {
+  const m = innerMessages(msg)[0];
+  // deno-lint-ignore no-explicit-any
+  if ((m as any)?.context?.id && (m as any)?.edited) {
+    // deno-lint-ignore no-explicit-any
+    return (m as any).context.id;
+  }
+  return undefined;
+};
+
 export const whatsappForBusinessInjectDepsAndRun =
   (token: string, doTask: TaskHandler) =>
   async (msg: WhatsappMessage): Promise<void> => {
@@ -467,6 +477,7 @@ export const whatsappForBusinessInjectDepsAndRun =
       text: getText(msg),
       attachments: await getAttachments(token)(msg),
       ...getContacts(msg),
+      editedMessageId: editedMessageId(msg),
     };
     const send = sendWhatsappMessage(token, toNumberId(msg))(fromNumber(msg));
     const sendImageReply = sendWhatsappImage(token, toNumberId(msg))(

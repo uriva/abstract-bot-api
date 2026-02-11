@@ -49,7 +49,7 @@ type QuotedMessage = {
 };
 
 type GreenApiMessage = {
-  typeWebhook: "incomingMessageReceived";
+  typeWebhook: "incomingMessageReceived" | "incomingMessageEdited";
   instanceData: {
     idInstance: number;
     wid: string;
@@ -107,9 +107,10 @@ const communications = (
   referenceId: string | undefined,
   userId: string,
   send: (txt: string) => Promise<string>,
+  editedMessageId: string | undefined,
 ) => {
   const f = pipe(
-    injectLastEvent(() => ({ text })),
+    injectLastEvent(() => ({ text, editedMessageId })),
     injectBotPhone(() => botPhone),
     injectMedium(() => "green-api"),
     injectMessageId(() => msgId),
@@ -154,5 +155,6 @@ export const greenApiHandler = (
       greenApiReferenceId(msg),
       messageSender(msg),
       sendGreenApiMessage(credentials)(messageSender(msg)),
+      msg.typeWebhook === "incomingMessageEdited" ? msg.idMessage : undefined,
     )(doTask)(),
 });

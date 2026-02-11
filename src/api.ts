@@ -174,6 +174,7 @@ export type ConversationEvent = {
   contact?: { phone: string; name: string };
   attachments?: MediaAttachment[];
   ownPhone?: string;
+  editedMessageId?: string;
 };
 
 // deno-lint-ignore no-explicit-any
