@@ -546,7 +546,7 @@ const editWhatsappMessage =
     fetch(
       `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
       {
-        method: "PUT",
+        method: "POST",
         body: JSON.stringify({
           messaging_product: "whatsapp",
           message_id: messageId,
