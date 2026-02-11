@@ -544,12 +544,11 @@ const editWhatsappMessage =
   (accessToken: string, fromNumberId: string) =>
   (messageId: string, text: string): Promise<void> =>
     fetch(
-      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages/${messageId}`,
       {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          message_id: messageId,
           type: "text",
           text: { body: convertToWhatsAppFormat(text) },
         }),
