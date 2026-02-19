@@ -9,7 +9,6 @@ import type {
 import { encodeBase64 } from "@std/encoding";
 import type { Injector } from "@uri/inject";
 import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
-import { get } from "node:https";
 import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
 import {
@@ -29,20 +28,11 @@ import {
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
 
-const createUrlReadStream = (url: string): Readable => {
-  const readable = new Readable({ read() {} });
-  get(url, (response) => {
-    // deno-lint-ignore no-explicit-any
-    response.on("data", (chunk: any) => {
-      readable.push(chunk);
-    });
-    response.on("end", () => {
-      readable.push(null);
-    });
-  }).on("error", (error) => {
-    readable.emit("error", error);
-  });
-  return readable;
+const createUrlReadStream = async (url: string): Promise<Readable> => {
+  const response = await fetch(url);
+  return Readable.fromWeb(
+    response.body as import("node:stream/web").ReadableStream,
+  );
 };
 
 export const sendFileTelegram =
@@ -50,9 +40,9 @@ export const sendFileTelegram =
     retry(
       3000,
       2,
-      (uid: number, path: string) => (path.includes(".gif")
+      async (uid: number, path: string) => (path.includes(".gif")
         ? tgm.sendAnimation(uid, path)
-        : tgm.sendVideo(uid, { source: createUrlReadStream(path) })),
+        : tgm.sendVideo(uid, { source: await createUrlReadStream(path) })),
     )(uid, path).then(() => {});
 
 const progressMessage =
