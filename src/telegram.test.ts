@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  extractVideoTag,
   getBestPhoneFromContactShared,
   sanitizeTelegramHtml,
 } from "./telegram.ts";
@@ -60,4 +61,78 @@ Deno.test("sanitizeTelegramHtml escapes unbalanced </b> closing tag", () => {
   const input = "hello</b>"; // missing opening <b>
   const out = sanitizeTelegramHtml(input);
   assertEquals(out, "hello&lt;/b&gt;");
+});
+
+Deno.test("extractVideoTag returns null for text without video tag", () => {
+  assertEquals(extractVideoTag("just some text"), null);
+});
+
+Deno.test("extractVideoTag extracts src from video tag", () => {
+  const result = extractVideoTag(
+    'Here is your video: <video src="https://example.com/video.mp4"></video>',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/video.mp4",
+    remainingText: "Here is your video:",
+  });
+});
+
+Deno.test("extractVideoTag handles self-closing video tag", () => {
+  const result = extractVideoTag(
+    '<video src="https://example.com/video.mp4">',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/video.mp4",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractVideoTag handles video tag with surrounding text", () => {
+  const result = extractVideoTag(
+    'Before <video src="https://example.com/v.mp4"></video> after',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/v.mp4",
+    remainingText: "Before\nafter",
+  });
+});
+
+Deno.test("extractVideoTag handles video tag with single quotes", () => {
+  const result = extractVideoTag(
+    "<video src='https://example.com/v.mp4'>",
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/v.mp4",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractVideoTag handles video tag with extra attributes", () => {
+  const result = extractVideoTag(
+    '<video controls src="https://example.com/v.mp4" width="640"></video>',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/v.mp4",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractVideoTag handles source child element", () => {
+  const result = extractVideoTag(
+    '<video controls><source src="https://example.com/v.mp4" type="video/mp4" /></video>',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/v.mp4",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractVideoTag handles source child with surrounding text", () => {
+  const result = extractVideoTag(
+    'Here it is: <video controls><source src="https://example.com/v.mp4" type="video/mp4" /></video> enjoy!',
+  );
+  assertEquals(result, {
+    videoUrl: "https://example.com/v.mp4",
+    remainingText: "Here it is:\nenjoy!",
+  });
 });

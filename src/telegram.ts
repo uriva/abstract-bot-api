@@ -481,16 +481,53 @@ export const telegramNormalizeEvent = async (
   };
 };
 
+const videoTagRegex =
+  /<video[^>]*(?:\ssrc=["']([^"']+)["'])[^>]*>(?:<\/video>)?|<video[^>]*>\s*<source\s+[^>]*src=["']([^"']+)["'][^>]*\/?>(?:\s*<\/source>)?\s*<\/video>/i;
+
+const joinRemainingParts = (before: string, after: string) =>
+  before + (before && after ? "\n" : "") + after;
+
+const buildResult = (
+  text: string,
+  matchIndex: number,
+  matchLength: number,
+  videoUrl: string,
+) => ({
+  videoUrl,
+  remainingText: joinRemainingParts(
+    text.slice(0, matchIndex).trim(),
+    text.slice(matchIndex + matchLength).trim(),
+  ),
+});
+
+export const extractVideoTag = (
+  text: string,
+): { videoUrl: string; remainingText: string } | null => {
+  const match = videoTagRegex.exec(text);
+  if (!match) return null;
+  const videoUrl = match[1] ?? match[2];
+  if (!videoUrl) return null;
+  return buildResult(text, match.index, match[0].length, videoUrl);
+};
+
 const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
   pipe(
     injectMedium(() => "telegram"),
     injectUserId(() => id.toString()),
     injectFileLimitMB(() => 50),
     injectSendFile(sendFileTelegram(tgm, id)),
-    injectReply((t: string) =>
-      // @ts-ignore error in node but not in deno
-      sendTelegramMessage(telegramToken)(id, t)
-    ),
+    injectReply(async (t: string) => {
+      const extracted = extractVideoTag(t);
+      if (!extracted) {
+        // @ts-ignore error in node but not in deno
+        return sendTelegramMessage(telegramToken)(id, t);
+      }
+      await sendFileTelegram(tgm, id)(extracted.videoUrl);
+      return extracted.remainingText
+        // @ts-ignore error in node but not in deno
+        ? sendTelegramMessage(telegramToken)(id, extracted.remainingText)
+        : crypto.randomUUID();
+    }),
     injectEditMessage((msgId: string, text: string) =>
       tgm.editMessageText(
         id,
