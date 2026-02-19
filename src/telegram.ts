@@ -64,11 +64,12 @@ const progressMessage =
   };
 
 const telegramProgressBar =
-  (tgm: Telegram, uid: number) =>
+  (tgm: Telegram, uid: number, onMessageId?: (id: number) => void) =>
   async (text: string): Promise<(progress: number) => Promise<void>> => {
     const bar = progressMessage(text, 20);
     let lastValue = 0;
     const { message_id } = await tgm.sendMessage(uid, bar(lastValue));
+    onMessageId?.(message_id);
     return throttle(1)((progress: number): Promise<void> => {
       if (bar(progress) === bar(lastValue)) return Promise.resolve();
       lastValue = progress;
@@ -80,11 +81,12 @@ const telegramProgressBar =
 const spinnerMessages = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 const makeSpinner =
-  (tgm: Telegram, uid: number) =>
+  (tgm: Telegram, uid: number, onMessageId?: (id: number) => void) =>
   async (text: string): Promise<() => Promise<void>> => {
     const messageId = await tgm
       .sendMessage(uid, `${text} ${spinnerMessages[0]}`)
       .then(({ message_id }) => message_id);
+    onMessageId?.(messageId);
     let finished = false;
     const update = async (frame: number): Promise<void> => {
       if (finished) return;
@@ -510,7 +512,13 @@ export const extractVideoTag = (
   return buildResult(text, match.index, match[0].length, videoUrl);
 };
 
-const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
+const injectDeps = (
+  telegramToken: string,
+  id: number,
+  tgm: Telegram,
+  onSpinnerMessageId?: (id: number) => void,
+  onProgressBarMessageId?: (id: number) => void,
+) =>
   pipe(
     injectMedium(() => "telegram"),
     injectUserId(() => id.toString()),
@@ -537,8 +545,8 @@ const injectDeps = (telegramToken: string, id: number, tgm: Telegram) =>
       )
         .then(() => {})
     ),
-    injectProgressBar(telegramProgressBar(tgm, id)),
-    injectSpinner(makeSpinner(tgm, id)),
+    injectProgressBar(telegramProgressBar(tgm, id, onProgressBarMessageId)),
+    injectSpinner(makeSpinner(tgm, id, onSpinnerMessageId)),
     injectTyping(makeTyping(tgm, id)),
   );
 
@@ -548,8 +556,16 @@ const telegrafInstance = (token: string) =>
 export const telegramInjectDeps = (
   telegramToken: string,
   fromId: number,
+  onSpinnerMessageId?: (id: number) => void,
+  onProgressBarMessageId?: (id: number) => void,
 ): Injector =>
-  injectDeps(telegramToken, fromId, telegrafInstance(telegramToken));
+  injectDeps(
+    telegramToken,
+    fromId,
+    telegrafInstance(telegramToken),
+    onSpinnerMessageId,
+    onProgressBarMessageId,
+  );
 
 export const makeTelegramHandler = (
   telegramToken: string,
