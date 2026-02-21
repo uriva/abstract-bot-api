@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  extractImgTag,
   extractVideoTag,
   getBestPhoneFromContactShared,
   sanitizeTelegramHtml,
@@ -134,5 +135,59 @@ Deno.test("extractVideoTag handles source child with surrounding text", () => {
   assertEquals(result, {
     videoUrl: "https://example.com/v.mp4",
     remainingText: "Here it is:\nenjoy!",
+  });
+});
+
+Deno.test("extractImgTag returns null for text without img tag", () => {
+  assertEquals(extractImgTag("just some text"), null);
+});
+
+Deno.test("extractImgTag extracts src from img tag", () => {
+  const result = extractImgTag(
+    'Here is your image: <img src="https://example.com/photo.jpg">',
+  );
+  assertEquals(result, {
+    imageUrl: "https://example.com/photo.jpg",
+    remainingText: "Here is your image:",
+  });
+});
+
+Deno.test("extractImgTag handles self-closing img tag", () => {
+  const result = extractImgTag(
+    '<img src="https://example.com/photo.jpg" />',
+  );
+  assertEquals(result, {
+    imageUrl: "https://example.com/photo.jpg",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractImgTag handles img tag with surrounding text", () => {
+  const result = extractImgTag(
+    'Before <img src="https://example.com/photo.jpg"> after',
+  );
+  assertEquals(result, {
+    imageUrl: "https://example.com/photo.jpg",
+    remainingText: "Before\nafter",
+  });
+});
+
+Deno.test("extractImgTag handles img tag with single quotes", () => {
+  const result = extractImgTag(
+    "<img src='https://example.com/photo.jpg'>",
+  );
+  assertEquals(result, {
+    imageUrl: "https://example.com/photo.jpg",
+    remainingText: "",
+  });
+});
+
+Deno.test("extractImgTag handles img tag with extra attributes", () => {
+  const result = extractImgTag(
+    '<img alt="A photo" src="https://example.com/photo.jpg" width="640">',
+  );
+  assertEquals(result, {
+    imageUrl: "https://example.com/photo.jpg",
+    remainingText: "",
   });
 });

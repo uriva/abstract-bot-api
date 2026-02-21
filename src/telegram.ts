@@ -502,6 +502,31 @@ export const extractVideoTag = (
   return buildResult(text, match.index, match[0].length, videoUrl);
 };
 
+const imgTagRegex = /<img[^>]*\ssrc=["']([^"']+)["'][^>]*\/?>/i;
+
+const buildImgResult = (
+  text: string,
+  matchIndex: number,
+  matchLength: number,
+  imageUrl: string,
+) => ({
+  imageUrl,
+  remainingText: joinRemainingParts(
+    text.slice(0, matchIndex).trim(),
+    text.slice(matchIndex + matchLength).trim(),
+  ),
+});
+
+export const extractImgTag = (
+  text: string,
+): { imageUrl: string; remainingText: string } | null => {
+  const match = imgTagRegex.exec(text);
+  if (!match) return null;
+  const imageUrl = match[1];
+  if (!imageUrl) return null;
+  return buildImgResult(text, match.index, match[0].length, imageUrl);
+};
+
 const injectDeps = (
   telegramToken: string,
   id: number,
