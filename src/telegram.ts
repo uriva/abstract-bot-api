@@ -540,16 +540,24 @@ const injectDeps = (
     injectFileLimitMB(() => 50),
     injectSendFile(sendFileTelegram(tgm, id)),
     injectReply(async (t: string) => {
-      const extracted = extractVideoTag(t);
-      if (!extracted) {
-        // @ts-ignore error in node but not in deno
-        return sendTelegramMessage(telegramToken)(id, t);
+      const extractedVideo = extractVideoTag(t);
+      if (extractedVideo) {
+        await sendFileTelegram(tgm, id)(extractedVideo.videoUrl);
+        return extractedVideo.remainingText
+          // @ts-ignore error in node but not in deno
+          ? sendTelegramMessage(telegramToken)(id, extractedVideo.remainingText)
+          : crypto.randomUUID();
       }
-      await sendFileTelegram(tgm, id)(extracted.videoUrl);
-      return extracted.remainingText
-        // @ts-ignore error in node but not in deno
-        ? sendTelegramMessage(telegramToken)(id, extracted.remainingText)
-        : crypto.randomUUID();
+      const extractedImg = extractImgTag(t);
+      if (extractedImg) {
+        await tgm.sendPhoto(id, extractedImg.imageUrl);
+        return extractedImg.remainingText
+          // @ts-ignore error in node but not in deno
+          ? sendTelegramMessage(telegramToken)(id, extractedImg.remainingText)
+          : crypto.randomUUID();
+      }
+      // @ts-ignore error in node but not in deno
+      return sendTelegramMessage(telegramToken)(id, t);
     }),
     injectEditMessage((msgId: string, text: string) =>
       tgm.editMessageText(
