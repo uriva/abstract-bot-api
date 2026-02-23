@@ -74,10 +74,24 @@ type ReactionMessage = {
   reaction: { message_id: string; emoji: string };
 };
 
+type LocationMessage = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "location";
+  location: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+  };
+};
+
 type ExtendedWebhookMessage =
   | WebhookMessage
   | ContactsMessage
-  | ReactionMessage;
+  | ReactionMessage
+  | LocationMessage;
 
 const apiVersion = "v21.0";
 
@@ -337,6 +351,8 @@ const messageText = pipe(
       ? ""
       : msg.type === "reaction"
       ? msg.reaction.emoji
+      : msg.type === "location"
+      ? `https://maps.google.com/maps?q=${msg.location.latitude},${msg.location.longitude}`
       : ""
   ),
   filter((x: string) => x),
