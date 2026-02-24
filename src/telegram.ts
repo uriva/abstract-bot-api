@@ -6,7 +6,7 @@ import type {
   PhotoSize,
   Update,
 } from "@grammyjs/types";
-import { encodeBase64 } from "@std/encoding";
+
 import type { Injector } from "@uri/inject";
 import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
 import { Readable } from "node:stream";
@@ -377,20 +377,18 @@ const getMimeTypeFromExtension = (filePath: string): string => {
   return mimeTypes[ext] || "application/octet-stream";
 };
 
-const fileIdToContentBase64AndMime =
+const fileIdToUrlAndMime =
   (token: string) =>
-  async (fileId: string): Promise<{ dataBase64: string; mimeType: string }> => {
+  async (fileId: string): Promise<{ fileUri: string; mimeType: string }> => {
     const response = await fetch(
       `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
     );
     if (!response.ok) throw new Error("could not fetch file url");
     const { result: { file_path } } = await response.json();
-    const fileResponse = await fetch(
-      `https://api.telegram.org/file/bot${token}/${file_path}`,
-    );
-    if (!fileResponse.ok) throw new Error("could not fetch file");
-    const dataBase64 = encodeBase64(await fileResponse.arrayBuffer());
-    return { dataBase64, mimeType: getMimeTypeFromExtension(file_path) };
+    return {
+      fileUri: `https://api.telegram.org/file/bot${token}/${file_path}`,
+      mimeType: getMimeTypeFromExtension(file_path),
+    };
   };
 
 const photoAttachment = (token: string) =>
@@ -399,23 +397,23 @@ async (
   caption?: string,
 ): Promise<MediaAttachment> => {
   const largestPhoto = pipe(max(prop<PhotoSize>()("width")))(photos);
-  const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
+  const { fileUri, mimeType } = await fileIdToUrlAndMime(token)(
     largestPhoto.file_id,
   );
-  return { kind: "inline", mimeType, dataBase64, caption };
+  return { kind: "file", mimeType, fileUri, caption };
 };
 
 const mediaFileAttachment = (token: string) =>
 async (
   file: { file_id: string; mime_type?: string },
 ): Promise<MediaAttachment> => {
-  const { dataBase64, mimeType } = await fileIdToContentBase64AndMime(token)(
+  const { fileUri, mimeType } = await fileIdToUrlAndMime(token)(
     file.file_id,
   );
   return {
-    kind: "inline",
+    kind: "file",
     mimeType: file.mime_type || mimeType,
-    dataBase64,
+    fileUri,
   };
 };
 
