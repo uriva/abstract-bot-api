@@ -446,7 +446,8 @@ export const getBestPhoneFromContactShared = ({
 
 export const telegramNormalizeEvent = async (
   token: string,
-  { text, entities, contact, photo, caption, voice, from, document }: Message,
+  { text, entities, contact, photo, caption, voice, from, document, location }:
+    Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
   if (photo) {
@@ -458,12 +459,16 @@ export const telegramNormalizeEvent = async (
   if (document) {
     attachments.push(await mediaFileAttachment(token)(document));
   }
+  const locationText = location
+    ? `https://maps.google.com/maps?q=${location.latitude},${location.longitude}`
+    : "";
+  const textWithLinks = (text ?? "") +
+    (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
+      (x) => x,
+    ).join("\n");
   return {
     kind: "message",
-    text: text +
-      (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
-        (x) => x,
-      ).join("\n"),
+    text: [textWithLinks, locationText].filter((x) => x).join("\n"),
     contact: contact && {
       name: contactToFullName(contact),
       phone: getBestPhoneFromContactShared(contact),
