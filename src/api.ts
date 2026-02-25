@@ -17,6 +17,7 @@ export const botPhone = botPhoneInjection.access;
 export const injectBotPhone = botPhoneInjection.inject;
 
 type Medium =
+  | "alice-and-bot"
   | "email"
   | "whatsapp"
   | "facebook-messenger"
