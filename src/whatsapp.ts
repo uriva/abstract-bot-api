@@ -415,9 +415,7 @@ const getMediaUrlAndMime = async (
   );
   if (!metaResp.ok) throw new Error(await metaResp.text());
   const meta: MediaGetResponse = await metaResp.json();
-  const url = new URL(meta.url);
-  url.searchParams.set("access_token", accessToken);
-  return { fileUri: url.toString(), mimeType: meta.mime_type };
+  return { fileUri: meta.url, mimeType: meta.mime_type };
 };
 
 const messageToAttachements =
