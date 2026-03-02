@@ -177,7 +177,7 @@ export const sendTelegramMessage = (token: string): (
           headers: { "Content-type": "application/json" },
           body: JSON.stringify({
             chat_id,
-            text: sanitizeTelegramHtml(text),
+            text: sanitizeTelegramHtml(markdownToTelegramHtml(text)),
             disable_web_page_preview: true,
             parse_mode: "HTML" as ParseMode,
           }),
@@ -193,9 +193,38 @@ export const sendTelegramMessage = (token: string): (
     },
   );
 
-// Escape unsafe HTML while preserving a small allowlist of Telegram-supported tags
-// so parse_mode: "HTML" won't fail on plain angle brackets like "<ul>" or "<someurl>".
-// Allowlist includes tags commonly used in bots: b, strong, i, em, u, s, del, code, pre, and <a href="...">.
+const convertMarkdownSegment = (text: string): string =>
+  text
+    .replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<b><i>$1</i></b>")
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, "<i>$1</i>")
+    .replace(/~~(.+?)~~/g, "<s>$1</s>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+const processOutsideInlineCode = (segment: string): string => {
+  const parts = segment.split(/(`[^`\n]+`)/);
+  return parts
+    .map((part) =>
+      part.startsWith("`") && part.endsWith("`")
+        ? `<code>${part.slice(1, -1)}</code>`
+        : convertMarkdownSegment(part)
+    )
+    .join("");
+};
+
+export const markdownToTelegramHtml = (text: string): string => {
+  const parts = text.split(/(```(?:\w*)\n?[\s\S]*?```)/);
+  return parts
+    .map((part) => {
+      const codeMatch = part.match(/^```(?:\w*)\n?([\s\S]*?)```$/);
+      return codeMatch
+        ? `<pre>${codeMatch[1].trimEnd()}</pre>`
+        : processOutsideInlineCode(part);
+    })
+    .join("");
+};
+
 export const sanitizeTelegramHtml = (input: string): string => {
   if (!input) return input;
   // 1) Escape everything first so raw angle brackets don't break parsing

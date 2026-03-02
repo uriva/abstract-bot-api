@@ -3,6 +3,7 @@ import {
   extractImgTag,
   extractVideoTag,
   getBestPhoneFromContactShared,
+  markdownToTelegramHtml,
   sanitizeTelegramHtml,
 } from "./telegram.ts";
 
@@ -190,4 +191,69 @@ Deno.test("extractImgTag handles img tag with extra attributes", () => {
     imageUrl: "https://example.com/photo.jpg",
     remainingText: "",
   });
+});
+
+Deno.test("markdownToTelegramHtml converts bold", () => {
+  assertEquals(markdownToTelegramHtml("hello **world**"), "hello <b>world</b>");
+});
+
+Deno.test("markdownToTelegramHtml converts italic", () => {
+  assertEquals(markdownToTelegramHtml("hello *world*"), "hello <i>world</i>");
+});
+
+Deno.test("markdownToTelegramHtml converts bold italic", () => {
+  assertEquals(
+    markdownToTelegramHtml("***important***"),
+    "<b><i>important</i></b>",
+  );
+});
+
+Deno.test("markdownToTelegramHtml converts headers to bold", () => {
+  assertEquals(markdownToTelegramHtml("### Heading"), "<b>Heading</b>");
+  assertEquals(markdownToTelegramHtml("# Title"), "<b>Title</b>");
+});
+
+Deno.test("markdownToTelegramHtml converts inline code", () => {
+  assertEquals(
+    markdownToTelegramHtml("use `deno run`"),
+    "use <code>deno run</code>",
+  );
+});
+
+Deno.test("markdownToTelegramHtml converts code blocks", () => {
+  assertEquals(
+    markdownToTelegramHtml("```\nconst x = 1;\n```"),
+    "<pre>const x = 1;</pre>",
+  );
+});
+
+Deno.test("markdownToTelegramHtml converts links", () => {
+  assertEquals(
+    markdownToTelegramHtml("[click](https://example.com)"),
+    '<a href="https://example.com">click</a>',
+  );
+});
+
+Deno.test("markdownToTelegramHtml converts strikethrough", () => {
+  assertEquals(markdownToTelegramHtml("~~old~~"), "<s>old</s>");
+});
+
+Deno.test("markdownToTelegramHtml does not convert markdown inside code", () => {
+  assertEquals(
+    markdownToTelegramHtml("`**not bold**`"),
+    "<code>**not bold**</code>",
+  );
+});
+
+Deno.test("markdownToTelegramHtml handles mixed formatting", () => {
+  const input = "### Menu\n\n**Ramen** - *delicious*\n~~sold out~~";
+  const expected =
+    "<b>Menu</b>\n\n<b>Ramen</b> - <i>delicious</i>\n<s>sold out</s>";
+  assertEquals(markdownToTelegramHtml(input), expected);
+});
+
+Deno.test("markdownToTelegramHtml + sanitizeTelegramHtml end-to-end", () => {
+  const input = "### Title\n**bold** and *italic*";
+  const result = sanitizeTelegramHtml(markdownToTelegramHtml(input));
+  assertEquals(result, "<b>Title</b>\n<b>bold</b> and <i>italic</i>");
 });
