@@ -12,6 +12,7 @@
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
     "jsr:@deno/graph@~0.69.7": "0.69.10",
     "jsr:@deno/graph@~0.73.1": "0.73.1",
+    "jsr:@noble/hashes@2.0.0": "2.0.0",
     "jsr:@std/assert@0.223": "0.223.0",
     "jsr:@std/assert@0.226": "0.226.0",
     "jsr:@std/assert@1.0.14": "1.0.14",
@@ -19,6 +20,7 @@
     "jsr:@std/bytes@0.223": "0.223.0",
     "jsr:@std/bytes@^1.0.5": "1.0.6",
     "jsr:@std/bytes@~0.218.2": "0.218.2",
+    "jsr:@std/encoding@0.224.0": "0.224.0",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fmt@0.223": "0.223.0",
     "jsr:@std/fmt@1": "1.0.8",
@@ -43,6 +45,7 @@
     "jsr:@ts-morph/bootstrap@0.27": "0.27.0",
     "jsr:@ts-morph/common@0.24": "0.24.0",
     "jsr:@ts-morph/common@0.27": "0.27.0",
+    "jsr:@uri/gamla@0.0.14": "0.0.14",
     "jsr:@uri/inject@0.0.1": "0.0.1",
     "npm:@grammyjs/types@3.22.2": "3.22.2",
     "npm:@green-api/whatsapp-api-client@0.4.0-0": "0.4.0-0",
@@ -52,7 +55,6 @@
     "npm:@whatsapp-cloudapi/types@4.0.0": "4.0.0",
     "npm:axios@*": "1.7.7",
     "npm:code-block-writer@^13.0.1": "13.0.3",
-    "npm:gamla@135.0.0": "135.0.0",
     "npm:html-to-text@9.0.5": "9.0.5",
     "npm:js-sha256@*": "0.11.0",
     "npm:sjcl@*": "1.0.8",
@@ -131,6 +133,9 @@
     "@deno/graph@0.73.1": {
       "integrity": "cd69639d2709d479037d5ce191a422eabe8d71bb68b0098344f6b07411c84d41"
     },
+    "@noble/hashes@2.0.0": {
+      "integrity": "203b1a1d3a3de1e964e482fbe8196963e12d5dc63f280b42eae2fb74131001c8"
+    },
     "@std/assert@0.218.2": {
       "integrity": "7f0a5a1a8cf86607cd6c2c030584096e1ffad27fc9271429a8cb48cfbdee5eaf"
     },
@@ -154,6 +159,9 @@
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
+    "@std/encoding@0.224.0": {
+      "integrity": "efb6dca97d3e9c31392bd5c8cfd9f9fc9decf5a1f4d1f78af7900a493bcf89b5"
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
@@ -278,21 +286,18 @@
         "jsr:@std/path@1"
       ]
     },
+    "@uri/gamla@0.0.14": {
+      "integrity": "5a83c61f77d0efc761f6a269596cb8d43658e4343d261f8c28ebbd4522e33519",
+      "dependencies": [
+        "jsr:@noble/hashes",
+        "jsr:@std/encoding@0.224.0"
+      ]
+    },
     "@uri/inject@0.0.1": {
       "integrity": "9280410610ae3ba205f9ce88aa24ac036c5ffa16bb7e3686a46d21d5e37987cb"
     }
   },
   "npm": {
-    "@deno/shim-deno-test@0.5.0": {
-      "integrity": "sha512-4nMhecpGlPi0cSzT67L+Tm+GOJqvuk8gqHBziqcUQOarnuIax1z96/gJHCSIz2Z0zhxE6Rzwb3IZXPtFh51j+w=="
-    },
-    "@deno/shim-deno@0.18.2": {
-      "integrity": "sha512-oQ0CVmOio63wlhwQF75zA4ioolPvOwAoK0yuzcS5bDC1JUvH3y1GS8xPh8EOpcoDQRU4FTG8OQfxhpR+c6DrzA==",
-      "dependencies": [
-        "@deno/shim-deno-test",
-        "which"
-      ]
-    },
     "@grammyjs/types@3.22.2": {
       "integrity": "sha512-uu7DX2ezhnBPozL3bXHmwhLvaFsh59E4QyviNH4Cij7EdVekYrs6mCzeXsa2pDk30l3uXo7DBahlZLzTPtpYZg=="
     },
@@ -500,13 +505,6 @@
       "os": ["darwin"],
       "scripts": true
     },
-    "gamla@135.0.0": {
-      "integrity": "sha512-gEo3QKndI09WfX71IB5Yiz/ql7wPNxRUmOqMsrPTVqKLHaLy/iiTQ5o8ZXvdZKqRbN74C+0w9ZlyIS8Ua3GUoA==",
-      "dependencies": [
-        "@deno/shim-deno",
-        "stable-hash"
-      ]
-    },
     "glob-parent@5.1.2": {
       "integrity": "sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==",
       "dependencies": [
@@ -543,9 +541,6 @@
     },
     "is-number@7.0.0": {
       "integrity": "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng=="
-    },
-    "isexe@3.1.1": {
-      "integrity": "sha512-LpB/54B+/2J5hqQ7imZHfdU31OlgQqx7ZicVlkm9kzg9/w8GKLEcFfJl/t7DCEDueOyBAD6zCCwTO6Fzs0NoEQ=="
     },
     "js-sha256@0.11.0": {
       "integrity": "sha512-6xNlKayMZvds9h1Y1VWc0fQHQ82BxTXizWPEtEeGvmOUYpBRy4gbWroHLpzowe6xiQhHpelCQiE7HEdznyBL9Q=="
@@ -657,9 +652,6 @@
     "sjcl@1.0.8": {
       "integrity": "sha512-LzIjEQ0S0DpIgnxMEayM1rq9aGwGRG4OnZhCdjx7glTaJtf4zRfpg87ImfjSJjoW9vKpagd82McDOwbRT5kQKQ=="
     },
-    "stable-hash@0.0.6": {
-      "integrity": "sha512-0afH4mobqTybYZsXImQRLOjHV4gvOW+92HdUIax9t7a8d9v54KWykEuMVIcXhD9BCi+w3kS4x7O6fmZQ3JlG/g=="
-    },
     "telegraf@4.16.3": {
       "integrity": "sha512-yjEu2NwkHlXu0OARWoNhJlIjX09dRktiMQFsM678BAH/PEPVwctzL67+tvXqLCRQQvm3SDtki2saGO9hLlz68w==",
       "dependencies": [
@@ -692,13 +684,6 @@
         "tr46",
         "webidl-conversions"
       ]
-    },
-    "which@4.0.0": {
-      "integrity": "sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==",
-      "dependencies": [
-        "isexe"
-      ],
-      "bin": true
     }
   },
   "remote": {
@@ -844,11 +829,11 @@
       "jsr:@std/assert@1.0.14",
       "jsr:@std/encoding@^1.0.10",
       "jsr:@std/io@~0.225.2",
+      "jsr:@uri/gamla@0.0.14",
       "jsr:@uri/inject@0.0.1",
       "npm:@grammyjs/types@3.22.2",
       "npm:@green-api/whatsapp-api-client@0.4.4",
       "npm:@whatsapp-cloudapi/types@4.0.0",
-      "npm:gamla@135.0.0",
       "npm:html-to-text@9.0.5",
       "npm:telegraf@^4.16.3"
     ]
