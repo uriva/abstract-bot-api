@@ -1,4 +1,4 @@
-import { decodeBase64, encodeBase64 } from "@std/encoding";
+import { decodeBase64 } from "@std/encoding";
 import type {
   WebhookMessage,
   WebhookPayload,
@@ -74,10 +74,24 @@ type ReactionMessage = {
   reaction: { message_id: string; emoji: string };
 };
 
+type LocationMessage = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "location";
+  location: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+  };
+};
+
 type ExtendedWebhookMessage =
   | WebhookMessage
   | ContactsMessage
-  | ReactionMessage;
+  | ReactionMessage
+  | LocationMessage;
 
 const apiVersion = "v21.0";
 
@@ -337,6 +351,8 @@ const messageText = pipe(
       ? ""
       : msg.type === "reaction"
       ? msg.reaction.emoji
+      : msg.type === "location"
+      ? `https://maps.google.com/maps?q=${msg.location.latitude},${msg.location.longitude}`
       : ""
   ),
   filter((x: string) => x),
@@ -386,7 +402,7 @@ type MediaGetResponse = {
   id: string;
 };
 
-const getMediaMetaAndData = async (
+const getMediaUrlAndMime = async (
   accessToken: string,
   id: string,
 ) => {
@@ -399,41 +415,40 @@ const getMediaMetaAndData = async (
   );
   if (!metaResp.ok) throw new Error(await metaResp.text());
   const meta: MediaGetResponse = await metaResp.json();
-  const fileResp = await fetch(meta.url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!fileResp.ok) throw new Error(await fileResp.text());
-  const dataBase64 = encodeBase64(await fileResp.arrayBuffer());
-  return { dataBase64, mimeType: meta.mime_type, caption: undefined, ...meta };
+  return { fileUri: meta.url, mimeType: meta.mime_type };
 };
 
 const messageToAttachements =
   (accessToken: string) =>
   async (m: ExtendedWebhookMessage): Promise<MediaAttachment[]> => {
     if (m.type === "image" && m.image?.id) {
-      const meta = await getMediaMetaAndData(accessToken, m.image.id);
+      const { fileUri, mimeType } = await getMediaUrlAndMime(
+        accessToken,
+        m.image.id,
+      );
       return [{
-        kind: "inline",
-        mimeType: meta.mimeType,
-        dataBase64: meta.dataBase64,
+        kind: "file",
+        mimeType,
+        fileUri,
         caption: m.image.caption,
       }];
     } else if (m.type === "video" && m.video?.id) {
-      const meta = await getMediaMetaAndData(accessToken, m.video.id);
+      const { fileUri, mimeType } = await getMediaUrlAndMime(
+        accessToken,
+        m.video.id,
+      );
       return [{
-        kind: "inline",
-        mimeType: meta.mimeType,
-        dataBase64: meta.dataBase64,
+        kind: "file",
+        mimeType,
+        fileUri,
         caption: m.video.caption,
       }];
     } else if (m.type === "audio" && m.audio?.id) {
-      const meta = await getMediaMetaAndData(accessToken, m.audio.id);
-      return [{
-        kind: "inline",
-        mimeType: meta.mimeType,
-        dataBase64: meta.dataBase64,
-      }];
+      const { fileUri, mimeType } = await getMediaUrlAndMime(
+        accessToken,
+        m.audio.id,
+      );
+      return [{ kind: "file", mimeType, fileUri }];
     }
     return [];
   };
