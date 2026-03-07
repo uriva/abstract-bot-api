@@ -42,6 +42,7 @@ import type {
   TaskHandler,
 } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
+import { extractImgTag } from "./telegram.ts";
 
 // Custom types for message types not in the library
 type ContactsMessage = {
@@ -528,7 +529,16 @@ export const whatsappForBusinessInjectDepsAndRun =
       injectBotPhone(() => toNumber(msg)),
       injectUserId(() => coerce(fromNumber(msg))),
       injectSpinner(pipe(send, (_) => () => Promise.resolve())),
-      injectReply(send),
+      injectReply(async (t: string) => {
+        const extracted = extractImgTag(t);
+        if (extracted) {
+          await sendImageReply({ link: extracted.imageUrl });
+          return extracted.remainingText
+            ? send(extracted.remainingText)
+            : crypto.randomUUID();
+        }
+        return send(t);
+      }),
       injectReplyImage(sendImageReply),
       injectTyping(() =>
         sendWhatsappTypingIndicator(token, toNumberId(msg))(
