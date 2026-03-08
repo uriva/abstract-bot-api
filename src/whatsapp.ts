@@ -42,7 +42,7 @@ import type {
   TaskHandler,
 } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
-import { extractImgTag } from "./telegram.ts";
+import { extractImgTag, extractVideoTag } from "./telegram.ts";
 
 // Custom types for message types not in the library
 type ContactsMessage = {
@@ -235,6 +235,29 @@ export const sendWhatsappImage =
 
     if (!response.ok) throw new Error(await response.text());
 
+    const { messages } = (await response.json()) as SentMessageResponse;
+    return messages[0].id;
+  };
+
+export const sendWhatsappVideo =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  async (link: string): Promise<string> => {
+    const response = await fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          recipient_type: "individual",
+          messaging_product: "whatsapp",
+          to,
+          type: "video",
+          video: { link },
+        }),
+        headers: makeHeaders(accessToken),
+      },
+    );
+    if (!response.ok) throw new Error(await response.text());
     const { messages } = (await response.json()) as SentMessageResponse;
     return messages[0].id;
   };
@@ -522,6 +545,9 @@ export const whatsappForBusinessInjectDepsAndRun =
     const sendImageReply = sendWhatsappImage(token, toNumberId(msg))(
       fromNumber(msg),
     );
+    const sendVideoReply = sendWhatsappVideo(token, toNumberId(msg))(
+      fromNumber(msg),
+    );
     return pipe(
       injectLastEvent(() => event),
       injectMedium(() => "whatsapp"),
@@ -530,6 +556,13 @@ export const whatsappForBusinessInjectDepsAndRun =
       injectUserId(() => coerce(fromNumber(msg))),
       injectSpinner(pipe(send, (_) => () => Promise.resolve())),
       injectReply(async (t: string) => {
+        const extractedVideo = extractVideoTag(t);
+        if (extractedVideo) {
+          await sendVideoReply(extractedVideo.videoUrl);
+          return extractedVideo.remainingText
+            ? send(extractedVideo.remainingText)
+            : crypto.randomUUID();
+        }
         const extracted = extractImgTag(t);
         if (extracted) {
           await sendImageReply({ link: extracted.imageUrl });
