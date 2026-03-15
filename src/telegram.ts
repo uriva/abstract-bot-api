@@ -261,7 +261,7 @@ export const sanitizeTelegramHtml = (input: string): string => {
     "pre",
   ]);
 
-  const tagRe = /&lt;(\/)?([a-zA-Z0-9]+)([^&]*?)&gt;/g;
+  const tagRe = /&lt;(\/)?([a-zA-Z0-9]+)((?:[^&]|&(?!gt;|lt;))*?)&gt;/g;
 
   const tokens: Token[] = [];
   let last = 0;

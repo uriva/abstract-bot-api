@@ -52,6 +52,16 @@ Deno.test("sanitizeTelegramHtml preserves anchors", () => {
   );
 });
 
+Deno.test("sanitizeTelegramHtml preserves anchors with query params", () => {
+  const input =
+    '<a href="https://view-chat.com/conversations?groupId=41037a5d-ce63-4616-8f5c-b5b1ab688b02&conversationName=229336330&limit=1">view chat</a>';
+  const out = sanitizeTelegramHtml(input);
+  assertEquals(
+    out,
+    '<a href="https://view-chat.com/conversations?groupId=41037a5d-ce63-4616-8f5c-b5b1ab688b02&amp;conversationName=229336330&amp;limit=1">view chat</a>',
+  );
+});
+
 Deno.test("sanitizeTelegramHtml escapes unbalanced <b> opening tag", () => {
   const input = "<b>hello"; // missing closing </b>
   const out = sanitizeTelegramHtml(input);
