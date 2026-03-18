@@ -596,7 +596,8 @@ const injectDeps = (
         id,
         Number(msgId),
         undefined,
-        sanitizeTelegramHtml(text),
+        sanitizeTelegramHtml(markdownToTelegramHtml(text)),
+        { parse_mode: "HTML" as ParseMode },
       )
         .then(() => {})
     ),
