@@ -473,8 +473,18 @@ export const getBestPhoneFromContactShared = ({
 
 export const telegramNormalizeEvent = async (
   token: string,
-  { text, entities, contact, photo, caption, voice, from, document, location }:
-    Message,
+  {
+    text,
+    entities,
+    contact,
+    photo,
+    caption,
+    voice,
+    from,
+    document,
+    location,
+    reply_to_message,
+  }: Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
   if (photo) {
@@ -502,6 +512,9 @@ export const telegramNormalizeEvent = async (
     },
     attachments,
     ownPhone: contact && sharedOwnPhone(coerce(from?.id), contact),
+    ...(reply_to_message
+      ? { referencedMessageId: reply_to_message.message_id.toString() }
+      : {}),
   };
 };
 

@@ -44,12 +44,15 @@ import type {
 import type { Endpoint } from "./taskBouncer.ts";
 import { extractImgTag, extractVideoTag } from "./telegram.ts";
 
+type MessageContext = { id?: string };
+
 // Custom types for message types not in the library
 type ContactsMessage = {
   from: string;
   id: string;
   timestamp: string;
   type: "contacts";
+  context?: MessageContext;
   contacts: {
     name: {
       formatted_name: string;
@@ -72,6 +75,7 @@ type ReactionMessage = {
   id: string;
   timestamp: string;
   type: "reaction";
+  context?: MessageContext;
   reaction: { message_id: string; emoji: string };
 };
 
@@ -80,6 +84,7 @@ type LocationMessage = {
   id: string;
   timestamp: string;
   type: "location";
+  context?: MessageContext;
   location: {
     latitude: number;
     longitude: number;
@@ -89,7 +94,7 @@ type LocationMessage = {
 };
 
 type ExtendedWebhookMessage =
-  | WebhookMessage
+  | (WebhookMessage & { context?: MessageContext })
   | ContactsMessage
   | ReactionMessage
   | LocationMessage;
@@ -343,12 +348,8 @@ const referenceId = pipe(
   innerMessages,
   juxtCat(
     pipe(
-      filter((msg: ExtendedWebhookMessage) =>
-        msg.type === "text" && !!msg.context
-      ),
-      map((x: ExtendedWebhookMessage) =>
-        x.type === "text" && x.context?.id || ""
-      ),
+      filter((msg: ExtendedWebhookMessage) => !!msg.context?.id),
+      map((x: ExtendedWebhookMessage) => x.context?.id || ""),
     ),
     pipe(
       filter((msg: ExtendedWebhookMessage) => msg.type === "reaction"),
@@ -528,11 +529,13 @@ const buildWhatsappEvent = async (
       attachments: await getAttachments(token)(msg),
     };
   }
+  const refId = firstMsg.context?.id;
   return {
     kind: "message",
     text: getText(msg),
     attachments: await getAttachments(token)(msg),
     ...getContacts(msg),
+    ...(refId ? { referencedMessageId: refId } : {}),
   };
 };
 

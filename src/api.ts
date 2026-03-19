@@ -175,6 +175,7 @@ type MessageEvent = {
   contact?: { phone: string; name: string };
   attachments?: MediaAttachment[];
   ownPhone?: string;
+  referencedMessageId?: string;
 };
 
 type EditEvent = {

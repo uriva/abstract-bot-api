@@ -100,10 +100,16 @@ export const registerWebhook = (
 ): Promise<greenApi.Settings.SetSettings> =>
   greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
 
-const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent =>
-  msg.typeWebhook === "incomingMessageEdited"
+const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent => {
+  const refId = greenApiReferenceId(msg);
+  return msg.typeWebhook === "incomingMessageEdited"
     ? { kind: "edit", text: messageText(msg), onMessageId: msg.idMessage }
-    : { kind: "message", text: messageText(msg) };
+    : {
+      kind: "message",
+      text: messageText(msg),
+      ...(refId ? { referencedMessageId: refId } : {}),
+    };
+};
 
 const communications = (
   event: ConversationEvent,
