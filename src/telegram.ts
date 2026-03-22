@@ -227,8 +227,15 @@ export const markdownToTelegramHtml = (text: string): string => {
 
 export const sanitizeTelegramHtml = (input: string): string => {
   if (!input) return input;
+  // 0) Decode pre-existing HTML entities to prevent double-escaping
+  const decoded = input
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'");
   // 1) Escape everything first so raw angle brackets don't break parsing
-  const escaped = input
+  const escaped = decoded
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
