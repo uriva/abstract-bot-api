@@ -1,6 +1,6 @@
 {
   "name": "@uri/abstract-bot-api",
-  "version": "0.0.52",
+  "version": "0.0.53",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
@@ -9,7 +9,7 @@
     "@green-api/whatsapp-api-client": "npm:@green-api/whatsapp-api-client@0.4.4",
     "@std/assert": "jsr:@std/assert@1.0.14",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
-    "@uri/inject": "jsr:@uri/inject@0.0.1",
+    "@uri/inject": "jsr:@uri/inject@^0.0.2",
     "@std/io": "jsr:@std/io@^0.225.2",
     "@whatsapp-cloudapi/types": "npm:@whatsapp-cloudapi/types@4.0.0",
     "gamla": "jsr:@uri/gamla@0.0.14",

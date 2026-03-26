@@ -68,6 +68,7 @@ const replyInjection: Injection<(msg: string) => Promise<string>> = context(
 );
 export const injectReply = replyInjection.inject;
 export const reply = replyInjection.access;
+export const getReply = replyInjection.getStore;
 
 const editMessageInjection: Injection<
   (id: string, text: string) => Promise<void>
