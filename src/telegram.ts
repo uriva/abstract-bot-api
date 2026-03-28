@@ -101,7 +101,9 @@ const makeSpinner =
   };
 
 const makeTyping = (tgm: Telegram, uid: number) => () =>
-  tgm.sendChatAction(uid, "typing").then(() => {});
+  tgm.sendChatAction(uid, "typing").then(() => {}).catch((e) => {
+    console.warn(`Failed to send typing action to ${uid}: ${e.message}`);
+  });
 
 const tokenToTelegramURL = (token: string): string =>
   `https://api.telegram.org/bot${token}/`;

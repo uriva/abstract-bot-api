@@ -46,7 +46,7 @@
     "jsr:@ts-morph/common@0.24": "0.24.0",
     "jsr:@ts-morph/common@0.27": "0.27.0",
     "jsr:@uri/gamla@0.0.14": "0.0.14",
-    "jsr:@uri/inject@0.0.1": "0.0.1",
+    "jsr:@uri/inject@^0.0.2": "0.0.2",
     "npm:@grammyjs/types@3.22.2": "3.22.2",
     "npm:@green-api/whatsapp-api-client@0.4.0-0": "0.4.0-0",
     "npm:@green-api/whatsapp-api-client@0.4.4": "0.4.4",
@@ -293,8 +293,8 @@
         "jsr:@std/encoding@0.224.0"
       ]
     },
-    "@uri/inject@0.0.1": {
-      "integrity": "9280410610ae3ba205f9ce88aa24ac036c5ffa16bb7e3686a46d21d5e37987cb"
+    "@uri/inject@0.0.2": {
+      "integrity": "532740259eddbb8e00b886fc4cb8b048f009be623225745cf3ce8cf229d6d30a"
     }
   },
   "npm": {
@@ -830,7 +830,7 @@
       "jsr:@std/encoding@^1.0.10",
       "jsr:@std/io@~0.225.2",
       "jsr:@uri/gamla@0.0.14",
-      "jsr:@uri/inject@0.0.1",
+      "jsr:@uri/inject@^0.0.2",
       "npm:@grammyjs/types@3.22.2",
       "npm:@green-api/whatsapp-api-client@0.4.4",
       "npm:@whatsapp-cloudapi/types@4.0.0",
