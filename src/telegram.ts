@@ -35,14 +35,30 @@ const createUrlReadStream = async (url: string): Promise<Readable> => {
   );
 };
 
+const ignoreKick = (err: unknown) => {
+  const e = err as Error & { response?: { error_code?: number } };
+  if (
+    e?.response?.error_code === 403 ||
+    e?.message?.includes("PEER_ID_INVALID") ||
+    e?.message?.includes("bot was kicked") ||
+    e?.message?.includes("Forbidden")
+  ) {
+    console.warn(`Ignoring Telegram error: ${e.message}`);
+    return undefined;
+  }
+  throw e;
+};
+
 export const sendFileTelegram =
   (tgm: Telegram, uid: number) => (path: string): Promise<void> =>
     retry(
       3000,
       2,
       async (uid: number, path: string) => (path.includes(".gif")
-        ? tgm.sendAnimation(uid, path)
-        : tgm.sendVideo(uid, { source: await createUrlReadStream(path) })),
+        ? tgm.sendAnimation(uid, path).catch(ignoreKick)
+        : tgm.sendVideo(uid, { source: await createUrlReadStream(path) }).catch(
+          ignoreKick,
+        )),
     )(uid, path).then(() => {});
 
 const progressMessage =
@@ -58,13 +74,17 @@ const telegramProgressBar =
   async (text: string): Promise<(progress: number) => Promise<void>> => {
     const bar = progressMessage(text, 20);
     let lastValue = 0;
-    const { message_id } = await tgm.sendMessage(uid, bar(lastValue));
-    onMessageId?.(message_id);
+    const message_id = await tgm.sendMessage(uid, bar(lastValue)).then((r) =>
+      r?.message_id
+    ).catch(ignoreKick);
+    if (message_id) onMessageId?.(message_id);
     return throttle(1)((progress: number): Promise<void> => {
-      if (bar(progress) === bar(lastValue)) return Promise.resolve();
+      if (!message_id || bar(progress) === bar(lastValue)) {
+        return Promise.resolve();
+      }
       lastValue = progress;
       return tgm.editMessageText(uid, message_id, undefined, bar(progress))
-        .then();
+        .then(() => {}).catch(ignoreKick);
     });
   };
 
@@ -73,13 +93,14 @@ const spinnerMessages = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧",
 const makeSpinner =
   (tgm: Telegram, uid: number, onMessageId?: (id: number) => void) =>
   async (text: string): Promise<() => Promise<void>> => {
-    const messageId = await tgm
-      .sendMessage(uid, `${text} ${spinnerMessages[0]}`)
-      .then(({ message_id }) => message_id);
-    onMessageId?.(messageId);
+    const messageId = await tgm.sendMessage(
+      uid,
+      `${text} ${spinnerMessages[0]}`,
+    ).then((r) => r?.message_id).catch(ignoreKick);
+    if (messageId) onMessageId?.(messageId);
     let finished = false;
     const update = async (frame: number): Promise<void> => {
-      if (finished) return;
+      if (!messageId || finished) return;
       await tgm
         .editMessageText(
           uid,
@@ -96,14 +117,12 @@ const makeSpinner =
       finished = true;
       await spinning;
       return tgm.editMessageText(uid, messageId, undefined, `${text} done.`)
-        .then(() => {});
+        .then(() => {}).catch(ignoreKick);
     };
   };
 
 const makeTyping = (tgm: Telegram, uid: number) => () =>
-  tgm.sendChatAction(uid, "typing").then(() => {}).catch((e) => {
-    console.warn(`Failed to send typing action to ${uid}: ${e.message}`);
-  });
+  tgm.sendChatAction(uid, "typing").then(() => {}).catch(ignoreKick);
 
 const tokenToTelegramURL = (token: string): string =>
   `https://api.telegram.org/bot${token}/`;
@@ -186,8 +205,16 @@ export const sendTelegramMessage = (token: string): (
         }).then((r) => r.json()),
     ),
     (response: ApiResponse<Message>) => {
-      if (response.ok) {
-        return response.result.message_id.toString();
+      if (response.ok) return response.result.message_id.toString();
+      if (
+        response.error_code === 403 ||
+        response.description.includes("PEER_ID_INVALID") ||
+        response.description.includes("bot was kicked")
+      ) {
+        console.warn(
+          `Ignoring Telegram error: ${response.error_code} ${response.description}`,
+        );
+        return "";
       }
       throw new Error(
         `Telegram error: ${response.error_code} ${response.description}`,
@@ -604,7 +631,7 @@ const injectDeps = (
       }
       const extractedImg = extractImgTag(t);
       if (extractedImg) {
-        await tgm.sendPhoto(id, extractedImg.imageUrl);
+        await tgm.sendPhoto(id, extractedImg.imageUrl).catch(ignoreKick);
         return extractedImg.remainingText
           // @ts-ignore error in node but not in deno
           ? sendTelegramMessage(telegramToken)(id, extractedImg.remainingText)
@@ -620,8 +647,7 @@ const injectDeps = (
         undefined,
         sanitizeTelegramHtml(markdownToTelegramHtml(text)),
         { parse_mode: "HTML" as ParseMode },
-      )
-        .then(() => {})
+      ).then(() => {}).catch(ignoreKick)
     ),
     injectProgressBar(telegramProgressBar(tgm, id, onProgressBarMessageId)),
     injectSpinner(makeSpinner(tgm, id, onSpinnerMessageId)),
