@@ -18,6 +18,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectProgressBar,
+  injectReaction,
   injectReply,
   injectSendFile,
   injectSpinner,
@@ -652,6 +653,17 @@ const injectDeps = (
     injectProgressBar(telegramProgressBar(tgm, id, onProgressBarMessageId)),
     injectSpinner(makeSpinner(tgm, id, onSpinnerMessageId)),
     injectTyping(makeTyping(tgm, id)),
+    injectReaction((msgId: string, emoji: string) =>
+      fetch(`https://api.telegram.org/bot${telegramToken}/setMessageReaction`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chat_id: id,
+          message_id: Number(msgId),
+          reaction: [{ type: "emoji", emoji }],
+        }),
+      }).then(() => {}).catch(ignoreKick)
+    ),
   );
 
 const telegrafInstance = (token: string) =>

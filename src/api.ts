@@ -125,6 +125,15 @@ const spinnerInjection: Injection<
 export const injectSpinner = spinnerInjection.inject;
 export const spinner = spinnerInjection.access;
 
+const reactionInjection: Injection<
+  (messageId: string, emoji: string) => Promise<void>
+> = context((_messageId: string, _emoji: string) => {
+  console.log("Reaction not supported by this connector");
+  return Promise.resolve();
+});
+export const injectReaction = reactionInjection.inject;
+export const sendReaction = reactionInjection.access;
+
 const typingInjection: Injection<() => Promise<void>> = context(() => {
   console.log("Typing...");
   return Promise.resolve();

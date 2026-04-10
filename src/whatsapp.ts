@@ -23,6 +23,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectMessageId,
+  injectReaction,
   injectReferenceId,
   injectReply,
   injectReplyImage,
@@ -582,6 +583,26 @@ export const whatsappForBusinessInjectDepsAndRun =
         ).catch((e) => {
           console.error(e);
         }).then(() => {})
+      ),
+      injectReaction((msgId: string, emoji: string) =>
+        fetch(
+          `https://graph.facebook.com/${apiVersion}/${
+            toNumberId(msg)
+          }/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              messaging_product: "whatsapp",
+              recipient_type: "individual",
+              to: fromNumber(msg),
+              type: "reaction",
+              reaction: { message_id: msgId, emoji },
+            }),
+            headers: makeHeaders(token),
+          },
+        ).then(() => {}).catch((e) =>
+          console.error("WhatsApp reaction failed:", e)
+        )
       ),
       referenceId(msg) ? injectReferenceId(() => referenceId(msg)) : identity,
     )(doTask)();
