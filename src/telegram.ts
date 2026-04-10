@@ -18,6 +18,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectProgressBar,
+  injectQuotedReply,
   injectReaction,
   injectReply,
   injectSendFile,
@@ -222,6 +223,39 @@ export const sendTelegramMessage = (token: string): (
       );
     },
   );
+
+export const sendTelegramQuotedReply = (token: string) =>
+(
+  chat_id: number,
+  text: string,
+  replyToMessageId: string,
+): Promise<string> =>
+  fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+    method: "POST",
+    headers: { "Content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id,
+      text: sanitizeTelegramHtml(markdownToTelegramHtml(text)),
+      disable_web_page_preview: true,
+      parse_mode: "HTML" as ParseMode,
+      reply_parameters: { message_id: Number(replyToMessageId) },
+    }),
+  }).then((r) => r.json()).then((response: ApiResponse<Message>) => {
+    if (response.ok) return response.result.message_id.toString();
+    if (
+      response.error_code === 403 ||
+      response.description.includes("PEER_ID_INVALID") ||
+      response.description.includes("bot was kicked")
+    ) {
+      console.warn(
+        `Ignoring Telegram error: ${response.error_code} ${response.description}`,
+      );
+      return "";
+    }
+    throw new Error(
+      `Telegram error: ${response.error_code} ${response.description}`,
+    );
+  });
 
 const convertMarkdownSegment = (text: string): string =>
   text
@@ -663,6 +697,9 @@ const injectDeps = (
           reaction: [{ type: "emoji", emoji }],
         }),
       }).then(() => {}).catch(ignoreKick)
+    ),
+    injectQuotedReply((text: string, replyToMessageId: string) =>
+      sendTelegramQuotedReply(telegramToken)(id, text, replyToMessageId)
     ),
   );
 

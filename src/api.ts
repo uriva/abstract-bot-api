@@ -134,6 +134,17 @@ const reactionInjection: Injection<
 export const injectReaction = reactionInjection.inject;
 export const sendReaction = reactionInjection.access;
 
+const quotedReplyInjection: Injection<
+  (text: string, replyToMessageId: string) => Promise<string>
+> = context((text: string, _replyToMessageId: string) => {
+  console.log(
+    "Quoted reply not supported by this connector, sending as plain reply",
+  );
+  return reply(text);
+});
+export const injectQuotedReply = quotedReplyInjection.inject;
+export const sendQuotedReply = quotedReplyInjection.access;
+
 const typingInjection: Injection<() => Promise<void>> = context(() => {
   console.log("Typing...");
   return Promise.resolve();

@@ -8,6 +8,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectMessageId,
+  injectQuotedReply,
   injectReferenceId,
   injectReply,
   injectSendFile,
@@ -119,6 +120,7 @@ const communications = (
   referenceId: string | undefined,
   userId: string,
   send: (txt: string) => Promise<string>,
+  quotedReply: (text: string, quotedMessageId: string) => Promise<string>,
 ) => {
   const f = pipe(
     injectLastEvent(() => event),
@@ -132,6 +134,7 @@ const communications = (
     ),
     injectSpinner(pipe(send, (_) => () => Promise.resolve())),
     injectReply(send),
+    injectQuotedReply(quotedReply),
   );
   return referenceId ? injectReferenceId(() => referenceId)(f) : f;
 };
@@ -150,6 +153,19 @@ export const sendGreenApiMessage =
       ({ idMessage }: MessageResponse) => idMessage,
     );
 
+export const sendGreenApiQuotedReply =
+  (secrets: GreenCredentials) =>
+  (to: string) =>
+  (text: string, quotedMessageId: string): Promise<string> =>
+    Promise.resolve(convertToWhatsAppFormat(text)).then((txt) =>
+      greenApi.restAPI(secrets).message.sendMessage(
+        to + phoneSuffix,
+        null,
+        txt,
+        quotedMessageId,
+      ).then(({ idMessage }: MessageResponse) => idMessage)
+    );
+
 export const greenApiHandler = (
   credentials: GreenCredentials,
   path: string,
@@ -166,5 +182,6 @@ export const greenApiHandler = (
       greenApiReferenceId(msg),
       messageSender(msg),
       sendGreenApiMessage(credentials)(messageSender(msg)),
+      sendGreenApiQuotedReply(credentials)(messageSender(msg)),
     )(doTask)(),
 });

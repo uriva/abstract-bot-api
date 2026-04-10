@@ -23,6 +23,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectMessageId,
+  injectQuotedReply,
   injectReaction,
   injectReferenceId,
   injectReply,
@@ -131,6 +132,31 @@ export const sendWhatsappMessage =
         if (!response.ok) throw new Error(await response.text());
         return (await response.json()) as SentMessageResponse;
       }).then(({ messages: [{ id }] }) => id));
+
+export const sendWhatsappQuotedReply =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  (text: string, replyToMessageId: string): Promise<string> =>
+    Promise.resolve(convertToWhatsAppFormat(text)).then((body) =>
+      fetch(
+        `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            recipient_type: "individual",
+            type: "text",
+            messaging_product: "whatsapp",
+            to,
+            text: { preview_url: false, body },
+            context: { message_id: replyToMessageId },
+          }),
+          headers: makeHeaders(accessToken),
+        },
+      ).then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+        return (await response.json()) as SentMessageResponse;
+      }).then(({ messages: [{ id }] }) => id)
+    );
 
 type ImageDataPayload = {
   data: string;
@@ -603,6 +629,9 @@ export const whatsappForBusinessInjectDepsAndRun =
         ).then(() => {}).catch((e) =>
           console.error("WhatsApp reaction failed:", e)
         )
+      ),
+      injectQuotedReply(
+        sendWhatsappQuotedReply(token, toNumberId(msg))(fromNumber(msg)),
       ),
       referenceId(msg) ? injectReferenceId(() => referenceId(msg)) : identity,
     )(doTask)();

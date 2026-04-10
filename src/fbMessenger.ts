@@ -5,6 +5,7 @@ import {
   injectLastEvent,
   injectMedium,
   injectMessageId,
+  injectQuotedReply,
   injectReply,
   injectReplyImage,
   injectSpinner,
@@ -375,6 +376,12 @@ export const fbMessengerInjectDepsAndRun =
         typing("typing_on").catch((e) => {
           console.error(e);
         }).then(() => {})
+      ),
+      injectQuotedReply((text: string, replyToMessageId: string) =>
+        sendMessengerReply(accessToken, pageId)(senderId)(
+          replyToMessageId,
+          text,
+        )
       ),
     )(doTask)();
   };
