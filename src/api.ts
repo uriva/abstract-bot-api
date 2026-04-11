@@ -134,6 +134,15 @@ const reactionInjection: Injection<
 export const injectReaction = reactionInjection.inject;
 export const sendReaction = reactionInjection.access;
 
+const deleteMessageInjection: Injection<
+  (chatId: string, messageId: string) => Promise<void>
+> = context((_chatId: string, _messageId: string) => {
+  console.log("Delete message not supported by this connector");
+  return Promise.resolve();
+});
+export const injectDeleteMessage = deleteMessageInjection.inject;
+export const deleteMessage = deleteMessageInjection.access;
+
 const quotedReplyInjection: Injection<
   (text: string, replyToMessageId: string) => Promise<string>
 > = context((text: string, _replyToMessageId: string) => {

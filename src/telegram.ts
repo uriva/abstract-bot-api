@@ -13,6 +13,7 @@ import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
 import {
   type ConversationEvent,
+  injectDeleteMessage,
   injectEditMessage,
   injectFileLimitMB,
   injectLastEvent,
@@ -697,6 +698,13 @@ const injectDeps = (
           reaction: [{ type: "emoji", emoji }],
         }),
       }).then(() => {}).catch(ignoreKick)
+    ),
+    injectDeleteMessage((chatId: string, msgId: string) =>
+      fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, message_id: Number(msgId) }),
+      }).then(() => {}).catch(() => {})
     ),
     injectQuotedReply((text: string, replyToMessageId: string) =>
       sendTelegramQuotedReply(telegramToken)(id, text, replyToMessageId)
