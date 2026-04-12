@@ -5,6 +5,7 @@ import {
   getBestPhoneFromContactShared,
   markdownToTelegramHtml,
   sanitizeTelegramHtml,
+  sendTelegramMessage,
 } from "./telegram.ts";
 
 const alicePhone = "972521111111";
@@ -266,4 +267,23 @@ Deno.test("markdownToTelegramHtml + sanitizeTelegramHtml end-to-end", () => {
   const input = "### Title\n**bold** and *italic*";
   const result = sanitizeTelegramHtml(markdownToTelegramHtml(input));
   assertEquals(result, "<b>Title</b>\n<b>bold</b> and <i>italic</i>");
+});
+
+Deno.test("sendTelegramMessage skips empty text after normalization", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = () => {
+    called = true;
+    return Promise.resolve(
+      new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
+    );
+  };
+
+  try {
+    const result = await sendTelegramMessage("token")(123, "   ");
+    assertEquals(result, "");
+    assertEquals(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

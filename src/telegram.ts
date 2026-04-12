@@ -191,7 +191,10 @@ export const sendTelegramMessage = (token: string): (
   chat_id: number,
   text: string,
 ) => Promise<string> =>
-  pipe(
+(chat_id: number, text: string) => {
+  const normalized = telegramMessageText(text);
+  if (!normalized) return Promise.resolve("");
+  return pipe(
     retry(
       2,
       500,
@@ -201,7 +204,7 @@ export const sendTelegramMessage = (token: string): (
           headers: { "Content-type": "application/json" },
           body: JSON.stringify({
             chat_id,
-            text: sanitizeTelegramHtml(markdownToTelegramHtml(text)),
+            text,
             disable_web_page_preview: true,
             parse_mode: "HTML" as ParseMode,
           }),
@@ -223,7 +226,18 @@ export const sendTelegramMessage = (token: string): (
         `Telegram error: ${response.error_code} ${response.description}`,
       );
     },
-  );
+  )(chat_id, normalized);
+};
+
+const telegramMessageText = (text: string) =>
+  sanitizeTelegramHtml(markdownToTelegramHtml(text)).trim();
+
+const sendTelegramMessageIfNonempty =
+  (send: (chatId: number, text: string) => Promise<string>) =>
+  (chatId: number, text: string) => {
+    const normalized = telegramMessageText(text);
+    return normalized ? send(chatId, normalized) : Promise.resolve("");
+  };
 
 export const sendTelegramQuotedReply = (token: string) =>
 (
@@ -231,32 +245,37 @@ export const sendTelegramQuotedReply = (token: string) =>
   text: string,
   replyToMessageId: string,
 ): Promise<string> =>
-  fetch(`${tokenToTelegramURL(token)}sendMessage`, {
-    method: "POST",
-    headers: { "Content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id,
-      text: sanitizeTelegramHtml(markdownToTelegramHtml(text)),
-      disable_web_page_preview: true,
-      parse_mode: "HTML" as ParseMode,
-      reply_parameters: { message_id: Number(replyToMessageId) },
-    }),
-  }).then((r) => r.json()).then((response: ApiResponse<Message>) => {
-    if (response.ok) return response.result.message_id.toString();
-    if (
-      response.error_code === 403 ||
-      response.description.includes("PEER_ID_INVALID") ||
-      response.description.includes("bot was kicked")
-    ) {
-      console.warn(
-        `Ignoring Telegram error: ${response.error_code} ${response.description}`,
-      );
-      return "";
-    }
-    throw new Error(
-      `Telegram error: ${response.error_code} ${response.description}`,
-    );
-  });
+  pipe(
+    (normalized: string) =>
+      normalized
+        ? fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+          method: "POST",
+          headers: { "Content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id,
+            text: normalized,
+            disable_web_page_preview: true,
+            parse_mode: "HTML" as ParseMode,
+            reply_parameters: { message_id: Number(replyToMessageId) },
+          }),
+        }).then((r) => r.json()).then((response: ApiResponse<Message>) => {
+          if (response.ok) return response.result.message_id.toString();
+          if (
+            response.error_code === 403 ||
+            response.description.includes("PEER_ID_INVALID") ||
+            response.description.includes("bot was kicked")
+          ) {
+            console.warn(
+              `Ignoring Telegram error: ${response.error_code} ${response.description}`,
+            );
+            return "";
+          }
+          throw new Error(
+            `Telegram error: ${response.error_code} ${response.description}`,
+          );
+        })
+        : Promise.resolve(""),
+  )(telegramMessageText(text));
 
 const convertMarkdownSegment = (text: string): string =>
   text
@@ -662,7 +681,10 @@ const injectDeps = (
         await sendFileTelegram(tgm, id)(extractedVideo.videoUrl);
         return extractedVideo.remainingText
           // @ts-ignore error in node but not in deno
-          ? sendTelegramMessage(telegramToken)(id, extractedVideo.remainingText)
+          ? sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
+            id,
+            extractedVideo.remainingText,
+          )
           : crypto.randomUUID();
       }
       const extractedImg = extractImgTag(t);
@@ -670,20 +692,30 @@ const injectDeps = (
         await tgm.sendPhoto(id, extractedImg.imageUrl).catch(ignoreKick);
         return extractedImg.remainingText
           // @ts-ignore error in node but not in deno
-          ? sendTelegramMessage(telegramToken)(id, extractedImg.remainingText)
+          ? sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
+            id,
+            extractedImg.remainingText,
+          )
           : crypto.randomUUID();
       }
       // @ts-ignore error in node but not in deno
-      return sendTelegramMessage(telegramToken)(id, t);
+      return sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
+        id,
+        t,
+      );
     }),
     injectEditMessage((msgId: string, text: string) =>
-      tgm.editMessageText(
-        id,
-        Number(msgId),
-        undefined,
-        sanitizeTelegramHtml(markdownToTelegramHtml(text)),
-        { parse_mode: "HTML" as ParseMode },
-      ).then(() => {}).catch(ignoreKick)
+      Promise.resolve(telegramMessageText(text)).then((normalized) =>
+        normalized
+          ? tgm.editMessageText(
+            id,
+            Number(msgId),
+            undefined,
+            normalized,
+            { parse_mode: "HTML" as ParseMode },
+          ).then(() => {}).catch(ignoreKick)
+          : undefined
+      )
     ),
     injectProgressBar(telegramProgressBar(tgm, id, onProgressBarMessageId)),
     injectSpinner(makeSpinner(tgm, id, onSpinnerMessageId)),
