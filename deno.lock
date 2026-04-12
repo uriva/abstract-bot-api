@@ -56,6 +56,7 @@
     "npm:axios@*": "1.7.7",
     "npm:code-block-writer@^13.0.1": "13.0.3",
     "npm:html-to-text@9.0.5": "9.0.5",
+    "npm:jose@^6.0.11": "6.2.2",
     "npm:js-sha256@*": "0.11.0",
     "npm:sjcl@*": "1.0.8",
     "npm:telegraf@^4.16.3": "4.16.3"
@@ -542,6 +543,9 @@
     "is-number@7.0.0": {
       "integrity": "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng=="
     },
+    "jose@6.2.2": {
+      "integrity": "sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ=="
+    },
     "js-sha256@0.11.0": {
       "integrity": "sha512-6xNlKayMZvds9h1Y1VWc0fQHQ82BxTXizWPEtEeGvmOUYpBRy4gbWroHLpzowe6xiQhHpelCQiE7HEdznyBL9Q=="
     },
@@ -835,6 +839,7 @@
       "npm:@green-api/whatsapp-api-client@0.4.4",
       "npm:@whatsapp-cloudapi/types@4.0.0",
       "npm:html-to-text@9.0.5",
+      "npm:jose@^6.0.11",
       "npm:telegraf@^4.16.3"
     ]
   }

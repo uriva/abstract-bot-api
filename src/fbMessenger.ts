@@ -20,6 +20,7 @@ import {
   stripUndefined,
 } from "./fbUtils.ts";
 import type { Endpoint } from "./taskBouncer.ts";
+import { verifyMetaSignature } from "./webhookAuth.ts";
 
 const apiVersion = "v24.0";
 
@@ -388,11 +389,14 @@ export const fbMessengerInjectDepsAndRun =
 
 export const messengerWebhookHandler = (
   accessToken: string,
+  appSecret: string,
   path: string,
   doTask: TaskHandler,
 ): Endpoint<MessengerWebhookMessage> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
+  authenticate: ({ headers, rawBody }) =>
+    verifyMetaSignature(appSecret, headers, rawBody),
   handler: fbMessengerInjectDepsAndRun(accessToken, doTask),
 });
 

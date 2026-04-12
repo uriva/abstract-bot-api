@@ -12,6 +12,7 @@ import {
 } from "../src/whatsapp.ts";
 
 const telegramToken = coerce(Deno.env.get("TELEGRAM_TOKEN"));
+const telegramWebhookSecret = coerce(Deno.env.get("TELEGRAM_WEBHOOK_SECRET"));
 const botServerSuffix = "/bot-url-suffix";
 
 const whatsappPath = "/whatsapp-url-suffix";
@@ -29,9 +30,15 @@ await bouncerServer(
   url,
   coerce(Deno.env.get("PORT")),
   [
-    makeTelegramHandler(telegramToken, botServerSuffix, handleMessage),
+    makeTelegramHandler(
+      telegramToken,
+      botServerSuffix,
+      handleMessage,
+      telegramWebhookSecret,
+    ),
     whatsappBusinessHandler(
       coerce(Deno.env.get("WHATSAPP_ACCESS_TOKEN")),
+      coerce(Deno.env.get("WHATSAPP_APP_SECRET")),
       whatsappPath,
       handleMessage,
     ),
@@ -41,6 +48,9 @@ await bouncerServer(
     ),
   ],
 );
-await setTelegramWebhook(telegramToken, url + botServerSuffix).then(
-  console.log,
-);
+await setTelegramWebhook(
+  telegramToken,
+  url + botServerSuffix,
+  telegramWebhookSecret,
+)
+  .then(console.log);

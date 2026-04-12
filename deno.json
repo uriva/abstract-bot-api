@@ -14,6 +14,7 @@
     "@whatsapp-cloudapi/types": "npm:@whatsapp-cloudapi/types@4.0.0",
     "gamla": "jsr:@uri/gamla@0.0.14",
     "html-to-text": "npm:html-to-text@9.0.5",
+    "jose": "npm:jose@^6.0.11",
     "telegraf": "npm:telegraf@^4.16.3"
   },
   "githooks": {

@@ -45,6 +45,7 @@ import type {
 } from "./index.ts";
 import type { Endpoint } from "./taskBouncer.ts";
 import { extractImgTag, extractVideoTag } from "./telegram.ts";
+import { verifyMetaSignature } from "./webhookAuth.ts";
 
 type MessageContext = { id?: string };
 
@@ -639,11 +640,14 @@ export const whatsappForBusinessInjectDepsAndRun =
 
 export const whatsappBusinessHandler = (
   token: string,
+  appSecret: string,
   path: string,
   doTask: TaskHandler,
 ): Endpoint<WhatsappMessage> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
+  authenticate: ({ headers, rawBody }) =>
+    verifyMetaSignature(appSecret, headers, rawBody),
   handler: whatsappForBusinessInjectDepsAndRun(token, doTask),
 });
 

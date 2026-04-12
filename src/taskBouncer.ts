@@ -33,58 +33,70 @@ const parseFormData = <T>(formData: string): unknown => {
   return result;
 };
 
-const getJson = async <T>(req: http.IncomingMessage): Promise<T> => {
-  const contentType = req.headers["content-type"];
+const parseUrlParamsAsJson = <T>(requestURL: string) =>
+  querystring.parse(url.parse(requestURL).query || "") as T;
+
+const pathForDeferred = "/abstract-bot-api-deferred";
+const deferredHeader = "x-abstract-bot-api-internal-token";
+
+type TaskAddress = { method: string; url: string };
+
+export type EndpointRequest<T> = {
+  address: TaskAddress;
+  headers: http.IncomingHttpHeaders;
+  payload: T;
+  rawBody?: string;
+};
+
+const rawBodyToPayload = <T>(
+  contentType: string | undefined,
+  rawBody: string,
+): Promise<T> => {
   if (contentType?.includes("application/json")) {
-    return JSON.parse(await getBody(req));
+    return Promise.resolve(JSON.parse(rawBody) as T);
   }
   if (contentType?.includes("application/x-www-form-urlencoded")) {
-    return parseFormData(await getBody(req)) as T;
+    return Promise.resolve(parseFormData(rawBody) as T);
   }
   if (contentType?.includes("multipart/form-data")) {
     return new Promise<T>((resolve) => {
-      let body = "";
-      req.on("data", (chunk: Buffer) => {
-        body += chunk;
-      });
-      req.on("end", () => {
-        const [, boundary] = contentType.split("boundary=");
-        const formData: Record<string, unknown> = {};
-        body.split(`--${boundary}`).forEach((part) => {
-          if (part.trim() !== "") {
-            const [header, content] = part.split("\r\n\r\n");
-            const headers = header.split("\r\n");
-            const fieldNameMatch = /name="(.+?)"/.exec(headers[1]);
-            const fieldName = fieldNameMatch ? fieldNameMatch[1] : null;
-            if (fieldName) {
-              const isFile = headers[0].includes("filename");
-              const fieldValue = isFile
-                ? content
-                : content.substring(0, content.length - 2); // Remove trailing \r\n
-              formData[fieldName] = isFile
-                ? { filename: fieldName, data: fieldValue }
-                : fieldValue;
-            }
+      const [, boundary] = contentType.split("boundary=");
+      const formData: Record<string, unknown> = {};
+      rawBody.split(`--${boundary}`).forEach((part) => {
+        if (part.trim() !== "") {
+          const [header, content] = part.split("\r\n\r\n");
+          const headers = header.split("\r\n");
+          const fieldNameMatch = /name="(.+?)"/.exec(headers[1]);
+          const fieldName = fieldNameMatch ? fieldNameMatch[1] : null;
+          if (fieldName) {
+            const isFile = headers[0].includes("filename");
+            const fieldValue = isFile
+              ? content
+              : content.substring(0, content.length - 2);
+            formData[fieldName] = isFile
+              ? { filename: fieldName, data: fieldValue }
+              : fieldValue;
           }
-        });
-        resolve(formData as T);
+        }
       });
+      resolve(formData as T);
     });
   }
   throw new Error(`Unsupported incoming type: ${contentType}`);
 };
 
-const parseUrlParamsAsJson = <T>(requestURL: string) =>
-  querystring.parse(url.parse(requestURL).query || "") as T;
-
-const pathForDeferred = "/abstract-bot-api-deferred";
-
-const reqToPayload = <T>(req: http.IncomingMessage): Promise<T> =>
-  req.method === "POST"
-    ? getJson<T>(req)
-    : Promise.resolve(parseUrlParamsAsJson<T>(coerce(req.url)));
-
-type TaskAddress = { method: string; url: string };
+const reqToPayload = async <T>(
+  req: http.IncomingMessage,
+): Promise<{ payload: T; rawBody?: string }> => {
+  if (req.method !== "POST") {
+    return { payload: parseUrlParamsAsJson<T>(coerce(req.url)) };
+  }
+  const rawBody = await getBody(req);
+  return {
+    payload: await rawBodyToPayload<T>(req.headers["content-type"], rawBody),
+    rawBody,
+  };
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
@@ -92,13 +104,30 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
 };
 
+type Authenticate<T> = (
+  request: EndpointRequest<T>,
+) => Promise<boolean> | boolean;
+
 const runEndpoint = <T>(
   address: TaskAddress,
   addTask: (payload: T) => void,
-  { bounce, handler }: Endpoint<T>,
+  { bounce, handler, authenticate }: Endpoint<T>,
 ) =>
 async (req: http.IncomingMessage, res: http.ServerResponse) => {
-  const payload: T = await reqToPayload<T>(req);
+  const { payload, rawBody } = await reqToPayload<T>(req);
+  if (authenticate) {
+    const authenticated = await Promise.resolve(
+      authenticate({ address, headers: req.headers, payload, rawBody }),
+    ).catch((error) => {
+      console.error("Endpoint authentication failed", error);
+      return false;
+    });
+    if (!authenticated) {
+      res.writeHead(401, corsHeaders);
+      res.end();
+      return;
+    }
+  }
   if (bounce) {
     addTask(payload);
     res.writeHead(200, corsHeaders);
@@ -110,19 +139,28 @@ async (req: http.IncomingMessage, res: http.ServerResponse) => {
 
 type Task<T> = { payload: T; address: TaskAddress };
 
-export type Endpoint<T> = {
+type EndpointBase<T> = {
   predicate: (task: TaskAddress) => boolean;
-  bounce: false;
-  handler: (task: T, res: http.ServerResponse, address: TaskAddress) => void;
-} | {
-  predicate: (address: TaskAddress) => boolean;
-  bounce: true;
-  handler: (payload: T) => Promise<void>;
+  authenticate?: Authenticate<T>;
 };
 
-const deferredHandlerEndpoint = <T>(eps: Endpoint<T>[]): Endpoint<Task<T>> => ({
+export type Endpoint<T> =
+  & EndpointBase<T>
+  & ({
+    bounce: false;
+    handler: (task: T, res: http.ServerResponse, address: TaskAddress) => void;
+  } | {
+    bounce: true;
+    handler: (payload: T) => Promise<void>;
+  });
+
+const deferredHandlerEndpoint = <T>(
+  eps: Endpoint<T>[],
+  internalToken: string,
+): Endpoint<Task<T>> => ({
   bounce: false,
   predicate: ({ method, url }) => method === "POST" && url === pathForDeferred,
+  authenticate: ({ headers }) => headers[deferredHeader] === internalToken,
   handler: async ({ address, payload }, res) => {
     for (
       const relevantEndpoint of eps.filter(({ predicate }) =>
@@ -152,10 +190,15 @@ const reqToTaskAddress = (req: http.IncomingMessage): TaskAddress => ({
 });
 
 const addTask =
-  (domain: string) => (address: TaskAddress) => <T>(payload: T) => {
+  (domain: string, internalToken: string) =>
+  (address: TaskAddress) =>
+  <T>(payload: T) => {
     fetch(domain + pathForDeferred, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        [deferredHeader]: internalToken,
+      },
       body: JSON.stringify({ address, payload } satisfies Task<T>),
     })
       // For test purposes, we must consume the body.
@@ -192,10 +235,11 @@ export const bouncerServer = (
   endpoints: Endpoint<any>[],
 ): Promise<http.Server> =>
   new Promise((resolve) => {
+    const internalToken = crypto.randomUUID();
     const server = http.createServer(
       selectAndRunEndpoint(
-        addTask(domain),
-        [deferredHandlerEndpoint(endpoints), ...endpoints],
+        addTask(domain, internalToken),
+        [deferredHandlerEndpoint(endpoints, internalToken), ...endpoints],
       ),
     );
     server.listen(port, () => {

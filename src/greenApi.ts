@@ -18,6 +18,7 @@ import {
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
 import { convertToWhatsAppFormat } from "./whatsapp.ts";
+import { verifyAuthorizationHeader } from "./webhookAuth.ts";
 
 export type GreenCredentials = { idInstance: string; apiTokenInstance: string };
 
@@ -98,8 +99,12 @@ const messageText = ({ messageData }: GreenApiMessage) =>
 export const registerWebhook = (
   credentials: GreenCredentials,
   webhookUrl: string,
+  webhookAuthorizationHeader?: string,
 ): Promise<greenApi.Settings.SetSettings> =>
-  greenApi.restAPI(credentials).settings.setSettings({ webhookUrl });
+  greenApi.restAPI(credentials).settings.setSettings({
+    webhookUrl,
+    webhookUrlToken: webhookAuthorizationHeader,
+  });
 
 const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent => {
   const refId = greenApiReferenceId(msg);
@@ -170,9 +175,12 @@ export const greenApiHandler = (
   credentials: GreenCredentials,
   path: string,
   doTask: TaskHandler,
+  webhookAuthorizationHeader: string,
 ): Endpoint<GreenApiMessage> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
+  authenticate: ({ headers }) =>
+    verifyAuthorizationHeader(webhookAuthorizationHeader, headers),
   handler: (msg: GreenApiMessage) =>
     communications(
       buildGreenApiEvent(msg),

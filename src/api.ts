@@ -22,7 +22,9 @@ type Medium =
   | "whatsapp"
   | "facebook-messenger"
   | "green-api"
+  | "slack"
   | "telegram"
+  | "microsoft-teams"
   | "supergreen/whatsapp"
   | "supergreen/telegram"
   | "no-medium";

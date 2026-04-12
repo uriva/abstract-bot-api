@@ -30,6 +30,7 @@ import {
   type TaskHandler,
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
+import { verifyTelegramSecretToken } from "./webhookAuth.ts";
 
 const createUrlReadStream = async (url: string): Promise<Readable> => {
   const response = await fetch(url);
@@ -462,8 +463,12 @@ export const sanitizeTelegramHtml = (input: string): string => {
 export const setTelegramWebhook = (
   token: string,
   url: string,
+  secretToken?: string,
 ): Promise<Response> =>
-  fetch(`${tokenToTelegramURL(token)}setWebhook?url=${url}`);
+  fetch(
+    `${tokenToTelegramURL(token)}setWebhook?url=${url}` +
+      (secretToken ? `&secret_token=${encodeURIComponent(secretToken)}` : ""),
+  );
 
 const getMimeTypeFromExtension = (filePath: string): string => {
   const ext = filePath.split(".").pop()?.toLowerCase() || "";
@@ -764,9 +769,12 @@ export const makeTelegramHandler = (
   telegramToken: string,
   path: string,
   doTask: TaskHandler,
+  secretToken: string,
 ): Endpoint<Update> => ({
   bounce: true,
   predicate: ({ url, method }) => url === path && method === "POST",
+  authenticate: ({ headers }) =>
+    verifyTelegramSecretToken(secretToken, headers),
   handler: async (update: Update) => {
     if (update.message_reaction) {
       const { message_reaction } = update;

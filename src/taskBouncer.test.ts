@@ -92,3 +92,52 @@ Deno.test("cors preflight", async () => {
   );
   await closeServer(server);
 });
+
+Deno.test("bounce endpoint rejects unauthenticated requests before queueing", async () => {
+  const host = "http://localhost";
+  const port = getDistinctPortNumber();
+  let handlerRan = false;
+  const server = await bouncerServer(`${host}:${port}`, port, [{
+    bounce: true,
+    predicate: ({ url }) => url === "/secure",
+    authenticate: ({ headers }) => headers.authorization === "Bearer good",
+    handler: () => {
+      handlerRan = true;
+      return Promise.resolve();
+    },
+  }]);
+
+  try {
+    const response = await fetch(`${host}:${port}/secure`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hello: "world" }),
+    });
+    assertEquals(response.status, 401);
+    await response.body?.cancel();
+    assertEquals(handlerRan, false);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+Deno.test("deferred endpoint rejects direct external calls", async () => {
+  const host = "http://localhost";
+  const port = getDistinctPortNumber();
+  const server = await bouncerServer(`${host}:${port}`, port, []);
+
+  try {
+    const response = await fetch(`${host}:${port}/abstract-bot-api-deferred`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        address: { method: "POST", url: "/x" },
+        payload: {},
+      }),
+    });
+    assertEquals(response.status, 401);
+    await response.body?.cancel();
+  } finally {
+    await closeServer(server);
+  }
+});
