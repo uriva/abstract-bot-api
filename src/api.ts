@@ -203,6 +203,7 @@ export type MediaAttachment =
 
 type MessageEvent = {
   kind: "message";
+  id: string;
   text?: string;
   contact?: { phone: string; name: string };
   attachments?: MediaAttachment[];
@@ -212,6 +213,7 @@ type MessageEvent = {
 
 type EditEvent = {
   kind: "edit";
+  id: string;
   text: string;
   onMessageId: string;
   attachments?: MediaAttachment[];
@@ -219,6 +221,7 @@ type EditEvent = {
 
 type ReactionEvent = {
   kind: "reaction";
+  id: string;
   reaction: string;
   onMessageId: string;
 };

@@ -109,9 +109,15 @@ export const registerWebhook = (
 const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent => {
   const refId = greenApiReferenceId(msg);
   return msg.typeWebhook === "incomingMessageEdited"
-    ? { kind: "edit", text: messageText(msg), onMessageId: msg.idMessage }
+    ? {
+      kind: "edit",
+      id: msg.idMessage,
+      text: messageText(msg),
+      onMessageId: msg.idMessage,
+    }
     : {
       kind: "message",
+      id: msg.idMessage,
       text: messageText(msg),
       ...(refId ? { referencedMessageId: refId } : {}),
     };

@@ -580,6 +580,7 @@ export const telegramNormalizeEvent = async (
     document,
     location,
     reply_to_message,
+    message_id,
   }: Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
@@ -601,6 +602,7 @@ export const telegramNormalizeEvent = async (
     ).join("\n");
   return {
     kind: "message",
+    id: message_id.toString(),
     text: [textWithLinks, locationText].filter((x) => x).join("\n"),
     contact: contact && {
       name: contactToFullName(contact),
@@ -783,6 +785,7 @@ export const makeTelegramHandler = (
       if (!emoji) return Promise.resolve();
       const event: ConversationEvent = {
         kind: "reaction",
+        id: message_reaction.message_id.toString(),
         reaction: emoji,
         onMessageId: message_reaction.message_id.toString(),
       };
@@ -801,6 +804,7 @@ export const makeTelegramHandler = (
       update.edited_message && normalized.kind === "message"
         ? {
           kind: "edit",
+          id: message.message_id.toString(),
           text: normalized.text ?? "",
           onMessageId: message.message_id.toString(),
           attachments: normalized.attachments,

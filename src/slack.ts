@@ -220,6 +220,7 @@ const normalizeSlackEvent = (
         messageId: event_id,
         event: {
           kind: "reaction",
+          id: event_id,
           reaction: event.reaction,
           onMessageId: event.item.ts,
         },
@@ -239,6 +240,7 @@ const normalizeSlackEvent = (
       referenceId: threadReference(event.message.thread_ts, event.message.ts),
       event: {
         kind: "edit",
+        id: event_id,
         text: event.message.text ?? "",
         onMessageId: event.message.ts,
         attachments: filesToAttachments(event.message.files),
@@ -254,6 +256,7 @@ const normalizeSlackEvent = (
     referenceId: threadReference(event.thread_ts, event.ts),
     event: {
       kind: "message",
+      id: event_id,
       text: event.text ?? "",
       attachments: filesToAttachments(event.files),
       ...(threadReference(event.thread_ts, event.ts)

@@ -541,9 +541,11 @@ const buildWhatsappEvent = async (
   msg: WhatsappMessage,
 ): Promise<ConversationEvent> => {
   const firstMsg = innerMessages(msg)[0];
+  const id = messageId(msg);
   if (firstMsg.type === "reaction") {
     return {
       kind: "reaction",
+      id,
       reaction: (firstMsg as ReactionMessage).reaction.emoji,
       onMessageId: (firstMsg as ReactionMessage).reaction.message_id,
     };
@@ -552,6 +554,7 @@ const buildWhatsappEvent = async (
   if (editId) {
     return {
       kind: "edit",
+      id,
       text: getText(msg),
       onMessageId: editId,
       attachments: await getAttachments(token)(msg),
@@ -560,6 +563,7 @@ const buildWhatsappEvent = async (
   const refId = firstMsg.context?.id;
   return {
     kind: "message",
+    id,
     text: getText(msg),
     attachments: await getAttachments(token)(msg),
     ...getContacts(msg),

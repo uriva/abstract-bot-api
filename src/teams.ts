@@ -262,6 +262,7 @@ const normalizeTeamsActivity = (
       referenceId: activity.replyToId,
       event: {
         kind: "reaction",
+        id: activity.id,
         reaction,
         onMessageId: activity.replyToId,
       },
@@ -275,6 +276,7 @@ const normalizeTeamsActivity = (
       referenceId: activity.replyToId,
       event: {
         kind: "edit",
+        id: activity.id,
         text: activity.text ?? "",
         onMessageId: activity.id,
         attachments: teamsAttachmentsToMedia(activity.attachments),
@@ -289,6 +291,7 @@ const normalizeTeamsActivity = (
     referenceId: activity.replyToId,
     event: {
       kind: "message",
+      id: activity.id,
       text: activity.text ?? "",
       attachments: teamsAttachmentsToMedia(activity.attachments),
       ...(activity.replyToId
