@@ -564,6 +564,7 @@ const buildWhatsappEvent = async (
   return {
     kind: "message",
     id,
+    time: Number(firstMsg.timestamp) * 1000,
     text: getText(msg),
     attachments: await getAttachments(token)(msg),
     ...getContacts(msg),

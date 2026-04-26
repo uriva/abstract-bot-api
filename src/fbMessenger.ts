@@ -305,6 +305,9 @@ const getSenderId = (msg: MessengerWebhookMessage): string =>
 const getMessageId = (msg: MessengerWebhookMessage): string =>
   msg.entry[0]?.messaging?.[0]?.message?.mid ?? "";
 
+const getTimestamp = (msg: MessengerWebhookMessage): number =>
+  msg.entry[0]?.messaging?.[0]?.timestamp ?? Date.now();
+
 const getPageId = (msg: MessengerWebhookMessage): string =>
   msg.entry[0]?.id ?? "";
 
@@ -364,6 +367,7 @@ export const fbMessengerInjectDepsAndRun =
       injectLastEvent(() => ({
         kind: "message" as const,
         id: messageId,
+        time: getTimestamp(msg),
         text,
         attachments,
       })),

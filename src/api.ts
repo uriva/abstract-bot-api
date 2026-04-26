@@ -204,6 +204,7 @@ export type MediaAttachment =
 type MessageEvent = {
   kind: "message";
   id: string;
+  time: number;
   text?: string;
   contact?: { phone: string; name: string };
   attachments?: MediaAttachment[];

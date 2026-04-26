@@ -88,8 +88,10 @@ Deno.test("teamsInjectDepsAndRun normalizes inbound messages and replies", async
       }],
     });
 
-    assertEquals(seenEvent, {
-      kind: "message",
+    assertEquals(typeof seenEvent.time, "number");
+    const { time: _, ...rest } = seenEvent;
+    assertEquals(rest, {
+      kind: "message" as const,
       text: "hello from teams",
       attachments: [{
         kind: "file",

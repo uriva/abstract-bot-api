@@ -257,6 +257,7 @@ const normalizeSlackEvent = (
     event: {
       kind: "message",
       id: event_id,
+      time: Number(event.ts) * 1000,
       text: event.text ?? "",
       attachments: filesToAttachments(event.files),
       ...(threadReference(event.thread_ts, event.ts)

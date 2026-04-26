@@ -292,6 +292,7 @@ const normalizeTeamsActivity = (
     event: {
       kind: "message",
       id: activity.id,
+      time: Date.now(),
       text: activity.text ?? "",
       attachments: teamsAttachmentsToMedia(activity.attachments),
       ...(activity.replyToId

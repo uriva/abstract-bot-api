@@ -118,6 +118,7 @@ const buildGreenApiEvent = (msg: GreenApiMessage): ConversationEvent => {
     : {
       kind: "message",
       id: msg.idMessage,
+      time: msg.timestamp * 1000,
       text: messageText(msg),
       ...(refId ? { referencedMessageId: refId } : {}),
     };

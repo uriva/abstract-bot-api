@@ -581,6 +581,7 @@ export const telegramNormalizeEvent = async (
     location,
     reply_to_message,
     message_id,
+    date,
   }: Message,
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
@@ -603,6 +604,7 @@ export const telegramNormalizeEvent = async (
   return {
     kind: "message",
     id: message_id.toString(),
+    time: date * 1000,
     text: [textWithLinks, locationText].filter((x) => x).join("\n"),
     contact: contact && {
       name: contactToFullName(contact),

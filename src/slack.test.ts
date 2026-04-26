@@ -83,6 +83,7 @@ Deno.test("slackInjectDepsAndRun normalizes inbound message and replies in threa
 
     assertEquals(seenEvent, {
       kind: "message",
+      time: Number("170000.0001") * 1000,
       text: "hello",
       attachments: [{
         kind: "file",
