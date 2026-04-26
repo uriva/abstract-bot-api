@@ -32,6 +32,7 @@ type TeamsAttachment = {
 export type TeamsActivity = {
   type: string;
   id: string;
+  timestamp?: string;
   text?: string;
   textFormat?: string;
   from?: TeamsAccount;
@@ -292,7 +293,9 @@ const normalizeTeamsActivity = (
     event: {
       kind: "message",
       id: activity.id,
-      time: Date.now(),
+      time: activity.timestamp
+        ? new Date(activity.timestamp).getTime()
+        : Date.now(),
       text: activity.text ?? "",
       attachments: teamsAttachmentsToMedia(activity.attachments),
       ...(activity.replyToId
