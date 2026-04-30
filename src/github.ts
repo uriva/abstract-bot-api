@@ -86,7 +86,7 @@ export const sendGithubComment = async (
   repo: string,
   issueNumber: number,
   body: string,
-) => {
+): Promise<{ id: number }> => {
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
     {
@@ -113,7 +113,7 @@ export const editGithubComment = async (
   repo: string,
   commentId: number,
   body: string,
-) => {
+): Promise<{ id: number }> => {
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/issues/comments/${commentId}`,
     {
