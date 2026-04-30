@@ -62,6 +62,17 @@ export const verifySlackSignature = async (
   return timingSafeEqual(expected, signature);
 };
 
+export const verifyGithubSignature = async (
+  appSecret: string,
+  headers: IncomingHttpHeaders,
+  rawBody: string | undefined,
+): Promise<boolean> => {
+  const signature = getHeader(headers, "x-hub-signature-256");
+  if (!signature || !rawBody) return false;
+  const expected = `sha256=${await hmacSha256Hex(appSecret, rawBody)}`;
+  return timingSafeEqual(expected, signature);
+};
+
 export const verifyMetaSignature = async (
   appSecret: string,
   headers: IncomingHttpHeaders,

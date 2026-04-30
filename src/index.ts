@@ -7,3 +7,4 @@ export * from "./taskBouncer.ts";
 export * from "./telegram.ts";
 export * from "./teams.ts";
 export * from "./whatsapp.ts";
+export * from "./github.ts";

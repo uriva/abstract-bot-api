@@ -27,7 +27,8 @@ type Medium =
   | "microsoft-teams"
   | "supergreen/whatsapp"
   | "supergreen/telegram"
-  | "no-medium";
+  | "no-medium"
+  | "github";
 
 const mediumInjection: Injection<() => Medium> = context((): Medium =>
   "no-medium"
