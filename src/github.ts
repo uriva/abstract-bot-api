@@ -175,8 +175,7 @@ export const handleGithub = (
       injectSendFile(async (url: string) => {
         const token = await getInstallationToken(installationId);
         const text = `Attachment: [${url}](${url})`;
-        const res = await sendGithubComment(token, owner, repo, issueNumber, text);
-        return res.id.toString();
+        await sendGithubComment(token, owner, repo, issueNumber, text);
       })
     )(doTask)();
   },
