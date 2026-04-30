@@ -58,6 +58,7 @@
     "npm:html-to-text@9.0.5": "9.0.5",
     "npm:jose@^6.0.11": "6.2.2",
     "npm:js-sha256@*": "0.11.0",
+    "npm:marked@*": "18.0.2",
     "npm:sjcl@*": "1.0.8",
     "npm:telegraf@^4.16.3": "4.16.3"
   },
@@ -551,6 +552,10 @@
     },
     "leac@0.6.0": {
       "integrity": "sha512-y+SqErxb8h7nE/fiEX07jsbuhrpO9lL8eca7/Y1nuWV2moNlXhyd59iDGcRf6moVyDMbmTNzL40SUyrFU/yDpg=="
+    },
+    "marked@18.0.2": {
+      "integrity": "sha512-NsmlUYBS/Zg57rgDWMYdnre6OTj4e+qq/JS2ot3KrYLSoHLw+sDu0Nm1ZGpRgYAq6c+b1ekaY5NzVchMCQnzcg==",
+      "bin": true
     },
     "merge2@1.4.1": {
       "integrity": "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="
