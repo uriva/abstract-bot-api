@@ -64,13 +64,13 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
       // Support both straight and smart quotes around href attribute
       // Capture full URL in group 1 and the host/path without protocol in group 2
       .replace(
-        /<a\s[^>]*href=[\"'“”](https?:\/\/([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
-        (_m, _fullUrl: string, linkNoProtocol: string, text: string) => {
+        /<a\s[^>]*href=[\"'“”]((https?:\/\/)([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
+        (_m, fullUrl: string, protocol: string, linkNoProtocol: string, text: string) => {
           const http = `http://${linkNoProtocol}`;
           const https = `https://${linkNoProtocol}`;
-          return (text === linkNoProtocol || text === http || text === https)
-            ? linkNoProtocol
-            : `${text} - ${linkNoProtocol}`;
+          return (text === linkNoProtocol || text === http || text === https || text === fullUrl)
+            ? fullUrl
+            : `${text} - ${fullUrl}`;
         },
       )
       .trim(),

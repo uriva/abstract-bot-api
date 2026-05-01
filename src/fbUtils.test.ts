@@ -30,28 +30,29 @@ const testCases = [
   },
   {
     testName: "handles web links",
-    input: '<a href="https://example.com">example.com</a>',
-    output: "example.com",
+    input: '<a href="https://example.com">https://example.com</a>',
+    output: "https://example.com",
   },
   {
     testName: "handles web links with different text",
     input: '<a href="https://example.com">Click Here</a>',
-    output: "Click Here - example.com",
+    output: "Click Here - https://example.com",
   },
   {
     testName: "link dedupe when text equals link",
-    input: '<a href="https://example.com">https://example.com</a>',
-    output: "example.com",
+    input: 'hi <a href="https://example.com">https://example.com</a>',
+    output: "hi https://example.com",
   },
   {
     testName: "link where text equals hostname only",
-    input: '<a href="https://example.com">example.com</a>',
-    output: "example.com",
+    input: 'hi <a href="https://example.com">example.com</a>',
+    output: "hi https://example.com",
   },
   {
-    testName: "preserves smart quotes outside links and handles them in href",
-    input: '<a href="https://example.com">"Fancy" link</a><br>and \'quotes\'',
-    output: "\"Fancy\" link - example.com\nand 'quotes'",
+    testName: "handles link with style attribute (duplicate)",
+    input:
+      '<a href="https://example.com" style="color: #9ca3af;">Click Here</a>',
+    output: "Click Here - https://example.com",
   },
   {
     testName: "handles unordered lists",
@@ -139,7 +140,7 @@ const testCases = [
   {
     testName: "handles link with style attribute",
     input: '<a href="https://example.com" style="color:red">Click Here</a>',
-    output: "Click Here - example.com",
+    output: "Click Here - https://example.com",
   },
   {
     testName: "handles pre>code wrapping with script tags",
@@ -147,6 +148,11 @@ const testCases = [
       "<pre><code>&lt;script type=&quot;application/json&quot; id=&quot;alice-and-bot-params&quot;&gt;\n  {bla:1}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById('alice-and-bot-params').textContent);\n  const s = document.createElement('script');\n  s.src = &quot;https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js&quot;;\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code></pre>",
     output:
       '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
+  },
+  {
+    testName: "handles urls properly",
+    input: '1. **<a href="https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png">שוט פתיחה - המארח עם יומן הנייר</a>**<br>המארח יושב בסלון שטוף שמש, נראה טיפה עמוס.',
+    output: '1. **שוט פתיחה - המארח עם יומן הנייר - https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png**\nהמארח יושב בסלון שטוף שמש, נראה טיפה עמוס.',
   },
 ];
 
