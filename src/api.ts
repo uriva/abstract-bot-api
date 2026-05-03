@@ -157,10 +157,9 @@ const quotedReplyInjection: Injection<
 export const injectQuotedReply = quotedReplyInjection.inject;
 export const sendQuotedReply = quotedReplyInjection.access;
 
-const typingInjection: Injection<() => Promise<void>> = context(() => {
-  console.log("Typing...");
-  return Promise.resolve();
-});
+const typingInjection: Injection<() => Promise<void>> = context(() =>
+  Promise.resolve()
+);
 export const injectTyping = typingInjection.inject;
 export const typing = typingInjection.access;
 
