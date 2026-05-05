@@ -151,8 +151,22 @@ const testCases = [
   },
   {
     testName: "handles urls properly",
-    input: '1. **<a href="https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png">שוט פתיחה - המארח עם יומן הנייר</a>**<br>המארח יושב בסלון שטוף שמש, נראה טיפה עמוס.',
-    output: '1. **שוט פתיחה - המארח עם יומן הנייר - https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png**\nהמארח יושב בסלון שטוף שמש, נראה טיפה עמוס.',
+    input:
+      '1. **<a href="https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png">שוט פתיחה - המארח עם יומן הנייר</a>**<br>המארח יושב בסלון שטוף שמש, נראה טיפה עמוס.',
+    output:
+      "1. *שוט פתיחה - המארח עם יומן הנייר - https://d3u0tzju9qaucj.cloudfront.net/857042ed-4902-4984-b3ad-8ffee8c2268e/3fc5bb0b-11e2-4f96-8993-46252eeea094.png*\nהמארח יושב בסלון שטוף שמש, נראה טיפה עמוס.",
+  },
+  {
+    testName: "converts markdown links",
+    input:
+      "👉 **[Download Compliments Audio Zip](https://thin-sheep-drive.loca.lt/compliments_audio.zip)**",
+    output:
+      "👉 *Download Compliments Audio Zip - https://thin-sheep-drive.loca.lt/compliments_audio.zip*",
+  },
+  {
+    testName: "dedupes markdown link text matching url",
+    input: "[https://example.com/file.zip](https://example.com/file.zip)",
+    output: "https://example.com/file.zip",
   },
 ];
 
