@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { lastEvent, reply, type TaskHandler } from "./index.ts";
+import type { ConversationEvent } from "./api.ts";
 import { sendTeamsMessage, teamsInjectDepsAndRun } from "./teams.ts";
 
 Deno.test("sendTeamsMessage acquires a token and posts markdown text", async () => {
@@ -64,7 +65,7 @@ Deno.test("teamsInjectDepsAndRun normalizes inbound messages and replies", async
     );
   };
 
-  let seenEvent;
+  let seenEvent: ConversationEvent | undefined;
   let sentId = "";
   const handler: TaskHandler = async () => {
     seenEvent = lastEvent();
@@ -88,8 +89,11 @@ Deno.test("teamsInjectDepsAndRun normalizes inbound messages and replies", async
       }],
     });
 
+    if (!seenEvent || seenEvent.kind !== "message") {
+      throw new Error("expected message event");
+    }
     assertEquals(typeof seenEvent.time, "number");
-    const { time: _, ...rest } = seenEvent;
+    const { time: _t, id: _id, ...rest } = seenEvent;
     assertEquals(rest, {
       kind: "message" as const,
       text: "hello from teams",

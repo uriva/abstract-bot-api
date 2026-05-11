@@ -82,7 +82,7 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           (
             _m,
             fullUrl: string,
-            protocol: string,
+            _protocol: string,
             linkNoProtocol: string,
             text: string,
           ) => {

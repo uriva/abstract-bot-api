@@ -1,15 +1,15 @@
 import {
   type ConversationEvent,
   injectEditMessage,
+  injectLastEvent,
+  injectMedium,
+  injectMessageId,
   injectReply,
   injectSendFile,
-  type TaskHandler,
-  injectMedium,
-  injectLastEvent,
   injectUserId,
-  injectMessageId,
+  type TaskHandler,
 } from "./api.ts";
-import { type Endpoint } from "./taskBouncer.ts";
+import type { Endpoint } from "./taskBouncer.ts";
 import { verifyGithubSignature } from "./webhookAuth.ts";
 import { pipe } from "gamla";
 
@@ -57,7 +57,11 @@ export const githubNormalizeEvent = (
       kind: "message",
       id: payload.pull_request!.number.toString(),
       time: Date.now(),
-      text: `${payload.action === "opened" ? "New Pull Request" : "Pull Request Updated"}: ${payload.pull_request!.title}\n\n${payload.pull_request!.body || ""}`,
+      text: `${
+        payload.action === "opened"
+          ? "New Pull Request"
+          : "Pull Request Updated"
+      }: ${payload.pull_request!.title}\n\n${payload.pull_request!.body || ""}`,
     };
   }
 
@@ -151,8 +155,10 @@ export const handleGithub = (
 
 export const githubInjectDeps = (
   payload: GithubWebhookPayload,
-  getInstallationToken: (installationId: number) => Promise<string>
-) => (doTask: TaskHandler) => async () => {
+  getInstallationToken: (installationId: number) => Promise<string>,
+) =>
+(doTask: TaskHandler) =>
+async () => {
   const event = githubNormalizeEvent(payload);
   if (!event || event.kind !== "message") return;
 
@@ -164,7 +170,8 @@ export const githubInjectDeps = (
   const installationId = payload.installation?.id;
   if (!installationId) return;
 
-  const userId = payload.comment?.user.login || payload.pull_request?.user.login || "unknown";
+  const userId = payload.comment?.user.login ||
+    payload.pull_request?.user.login || "unknown";
 
   await pipe(
     injectLastEvent(() => event),
@@ -173,7 +180,13 @@ export const githubInjectDeps = (
     injectMessageId(() => event.id),
     injectReply(async (text: string) => {
       const token = await getInstallationToken(installationId);
-      const res = await sendGithubComment(token, owner, repo, issueNumber, text);
+      const res = await sendGithubComment(
+        token,
+        owner,
+        repo,
+        issueNumber,
+        text,
+      );
       return res.id.toString();
     }),
     injectEditMessage(async (messageId: string, text: string) => {
@@ -184,6 +197,6 @@ export const githubInjectDeps = (
       const token = await getInstallationToken(installationId);
       const text = `Attachment: [${url}](${url})`;
       await sendGithubComment(token, owner, repo, issueNumber, text);
-    })
+    }),
   )(doTask)();
 };
