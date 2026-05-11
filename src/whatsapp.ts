@@ -134,30 +134,39 @@ export const sendWhatsappMessage =
         return (await response.json()) as SentMessageResponse;
       }).then(({ messages: [{ id }] }) => id));
 
+const isStaleMessageIdError = (text: string): boolean =>
+  text.includes('"code":100') && text.includes("does not exist");
+
 export const sendWhatsappQuotedReply =
   (accessToken: string, fromNumberId: string) =>
   (to: string) =>
-  (text: string, replyToMessageId: string): Promise<string> =>
-    Promise.resolve(convertToWhatsAppFormat(text)).then((body) =>
-      fetch(
-        `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            recipient_type: "individual",
-            type: "text",
-            messaging_product: "whatsapp",
-            to,
-            text: { preview_url: false, body },
-            context: { message_id: replyToMessageId },
-          }),
-          headers: makeHeaders(accessToken),
-        },
-      ).then(async (response) => {
-        if (!response.ok) throw new Error(await response.text());
-        return (await response.json()) as SentMessageResponse;
-      }).then(({ messages: [{ id }] }) => id)
+  async (text: string, replyToMessageId: string): Promise<string> => {
+    const body = convertToWhatsAppFormat(text);
+    const response = await fetch(
+      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          recipient_type: "individual",
+          type: "text",
+          messaging_product: "whatsapp",
+          to,
+          text: { preview_url: false, body },
+          context: { message_id: replyToMessageId },
+        }),
+        headers: makeHeaders(accessToken),
+      },
     );
+    if (!response.ok) {
+      const errText = await response.text();
+      if (isStaleMessageIdError(errText)) {
+        return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
+      }
+      throw new Error(errText);
+    }
+    const { messages }: SentMessageResponse = await response.json();
+    return messages[0].id;
+  };
 
 type ImageDataPayload = {
   data: string;
@@ -613,7 +622,8 @@ export const whatsappForBusinessInjectDepsAndRun =
         sendWhatsappTypingIndicator(token, toNumberId(msg))(
           messageId(msg),
         ).catch((e) => {
-          console.error(e);
+          const text = e instanceof Error ? e.message : String(e);
+          if (!isStaleMessageIdError(text)) console.error(e);
         }).then(() => {})
       ),
       injectReaction((msgId: string, emoji: string) =>
@@ -632,9 +642,14 @@ export const whatsappForBusinessInjectDepsAndRun =
             }),
             headers: makeHeaders(token),
           },
-        ).then(() => {}).catch((e) =>
-          console.error("WhatsApp reaction failed:", e)
-        )
+        ).then(async (response) => {
+          if (!response.ok) {
+            const errText = await response.text();
+            if (!isStaleMessageIdError(errText)) {
+              console.error("WhatsApp reaction failed:", errText);
+            }
+          }
+        }).catch((e) => console.error("WhatsApp reaction failed:", e))
       ),
       injectQuotedReply(
         sendWhatsappQuotedReply(token, toNumberId(msg))(fromNumber(msg)),
