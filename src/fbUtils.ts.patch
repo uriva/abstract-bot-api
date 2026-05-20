@@ -1,0 +1,22 @@
+--- /home/uri/uriva/abstract-bot-api/src/fbUtils.ts
++++ /home/uri/uriva/abstract-bot-api/src/fbUtils.ts
+@@ -69,12 +69,12 @@
+       // Support both straight and smart quotes around href attribute
+-      // Capture full URL in group 1 and the host/path without protocol in group 2
+       .replace(
+-        /<a\s[^>]*href=[\"'“”](https?:\/\/([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
+-        (_m, _fullUrl: string, linkNoProtocol: string, text: string) => {
+-          const http = `http://${linkNoProtocol}`;
+-          const https = `https://${linkNoProtocol}`;
+-          return (text === linkNoProtocol || text === http || text === https)
+-            ? linkNoProtocol
+-            : `${text} - ${linkNoProtocol}`;
++        /<a\s[^>]*href=[\"'“”]((https?:\/\/)([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
++        (_m, fullUrl: string, protocol: string, linkNoProtocol: string, text: string) => {
++          const http = `http://${linkNoProtocol}`;
++          const https = `https://${linkNoProtocol}`;
++          return (text === linkNoProtocol || text === http || text === https || text === fullUrl)
++            ? fullUrl
++            : `${text} - ${fullUrl}`;
+         },
+       )
