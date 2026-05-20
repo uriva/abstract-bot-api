@@ -113,9 +113,9 @@ const testCases = [
   {
     testName: "handles full Rachel bot widget code",
     input:
-      '<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js?v=304";\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code>',
+      '<code>&lt;script type="application/json" id="alice-and-bot-params"&gt;\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code>',
     output:
-      '```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js?v=304";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
+      '```<script type="application/json" id="alice-and-bot-params">\n  {"participants":["DUMMY_PUBLIC_KEY_DO_NOT_USE"],"requesterId":"1234567890@c.us"}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
   },
   {
     testName: "message with code block and entities",
@@ -135,7 +135,7 @@ const testCases = [
     input:
       "<code>&lt;script type=&quot;application/json&quot; id=&quot;alice-and-bot-params&quot;&gt;\n  {bla:1}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById('alice-and-bot-params').textContent);\n  const s = document.createElement('script');\n  s.src = &quot;https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js&quot;;\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code>",
     output:
-      '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js?v=304";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
+      '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
   },
   {
     testName: "handles link with style attribute",
@@ -147,7 +147,7 @@ const testCases = [
     input:
       "<pre><code>&lt;script type=&quot;application/json&quot; id=&quot;alice-and-bot-params&quot;&gt;\n  {bla:1}\n&lt;/script&gt;\n&lt;script&gt;\n  const widgetParams = JSON.parse(document.getElementById('alice-and-bot-params').textContent);\n  const s = document.createElement('script');\n  s.src = &quot;https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js&quot;;\n  s.async = true;\n  s.onload = () =&gt; aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n&lt;/script&gt;</code></pre>",
     output:
-      '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js?v=304";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
+      '```<script type="application/json" id="alice-and-bot-params">\n  {bla:1}\n</script>\n<script>\n  const widgetParams = JSON.parse(document.getElementById(\'alice-and-bot-params\').textContent);\n  const s = document.createElement(\'script\');\n  s.src = "https://storage.googleapis.com/alice-and-bot/widget/dist/widget.iife.js";\n  s.async = true;\n  s.onload = () => aliceAndBot.loadChatWidget(widgetParams);\n  document.head.appendChild(s);\n</script>```',
   },
   {
     testName: "handles urls properly",
