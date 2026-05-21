@@ -168,6 +168,11 @@ const testCases = [
     input: "[https://example.com/file.zip](https://example.com/file.zip)",
     output: "https://example.com/file.zip",
   },
+  {
+    testName: "converts markdown headlines",
+    input: "### Dawn Avatar Cafe",
+    output: "*Dawn Avatar Cafe*",
+  },
 ];
 
 each(({ testName, input, output }) =>

@@ -26,6 +26,7 @@ const markdownLinkToText = (
 const convertMarkdownToFacebookFormat = (message: string): string =>
   message
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, markdownLinkToText)
+    .replace(/^(#{1,6})\s+(.+)$/gm, "*$2*")
     .replace(/\*\*([^*]+)\*\*/g, "*$1*");
 
 export const convertHtmlToFacebookFormat = (message: string): string =>
