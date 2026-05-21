@@ -178,6 +178,11 @@ const testCases = [
     input: "### Welcome\n\nThis is <b>bold</b> and <i>italic</i>.\n\nVisit [Google](https://google.com) for details.",
     output: "*Welcome*\n\nThis is *bold* and _italic_.\n\nVisit Google - https://google.com for details.",
   },
+  {
+    testName: "converts blockquotes to WhatsApp blockquote format",
+    input: "<blockquote>Hello\nWorld</blockquote>",
+    output: "> Hello\n> World",
+  },
 ];
 
 each(({ testName, input, output }) =>

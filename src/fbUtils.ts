@@ -95,6 +95,10 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
               : `${text} - ${fullUrl}`;
           },
         )
+        .replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (_, content) => {
+          return "\n> " + String(content).trim().replace(/\n/g, "\n> ") + "\n";
+        })
+        .replace(/<[^>]+>/g, "")
         .trim(),
     ),
   );
