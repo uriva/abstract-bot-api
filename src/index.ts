@@ -8,3 +8,4 @@ export * from "./telegram.ts";
 export * from "./teams.ts";
 export * from "./whatsapp.ts";
 export * from "./github.ts";
+export * from "./webhookAuth.ts";
