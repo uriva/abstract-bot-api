@@ -586,13 +586,34 @@ export const telegramNormalizeEvent = async (
 ): Promise<ConversationEvent> => {
   const attachments: MediaAttachment[] = [];
   if (photo) {
-    attachments.push(await photoAttachment(token)(photo, caption));
+    try {
+      attachments.push(await photoAttachment(token)(photo, caption));
+    } catch (err) {
+      console.warn(
+        `[telegram-normalize] Failed to fetch photo attachment, skipping:`,
+        err,
+      );
+    }
   }
   if (voice) {
-    attachments.push(await mediaFileAttachment(token)(voice));
+    try {
+      attachments.push(await mediaFileAttachment(token)(voice));
+    } catch (err) {
+      console.warn(
+        `[telegram-normalize] Failed to fetch voice attachment, skipping:`,
+        err,
+      );
+    }
   }
   if (document) {
-    attachments.push(await mediaFileAttachment(token)(document));
+    try {
+      attachments.push(await mediaFileAttachment(token)(document));
+    } catch (err) {
+      console.warn(
+        `[telegram-normalize] Failed to fetch document attachment, skipping:`,
+        err,
+      );
+    }
   }
   const locationText = location
     ? `https://maps.google.com/maps?q=${location.latitude},${location.longitude}`

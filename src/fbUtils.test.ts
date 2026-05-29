@@ -174,9 +174,12 @@ const testCases = [
     output: "*Dawn Avatar Cafe*",
   },
   {
-    testName: "handles combined headlines, HTML bold/italic, and markdown links",
-    input: "### Welcome\n\nThis is <b>bold</b> and <i>italic</i>.\n\nVisit [Google](https://google.com) for details.",
-    output: "*Welcome*\n\nThis is *bold* and _italic_.\n\nVisit Google - https://google.com for details.",
+    testName:
+      "handles combined headlines, HTML bold/italic, and markdown links",
+    input:
+      "### Welcome\n\nThis is <b>bold</b> and <i>italic</i>.\n\nVisit [Google](https://google.com) for details.",
+    output:
+      "*Welcome*\n\nThis is *bold* and _italic_.\n\nVisit Google - https://google.com for details.",
   },
   {
     testName: "converts blockquotes to WhatsApp blockquote format",
