@@ -409,6 +409,8 @@ const messageText = pipe(
       ? msg.image.caption ?? ""
       : msg.type === "video"
       ? msg.video.caption ?? ""
+      : msg.type === "document" && "document" in msg
+      ? msg.document.caption ?? ""
       : msg.type === "audio"
       ? ""
       : msg.type === "reaction"
@@ -504,6 +506,17 @@ const messageToAttachements =
         mimeType,
         fileUri,
         caption: m.video.caption,
+      }];
+    } else if (m.type === "document" && "document" in m && m.document?.id) {
+      const { fileUri, mimeType } = await getMediaUrlAndMime(
+        accessToken,
+        m.document.id,
+      );
+      return [{
+        kind: "file",
+        mimeType,
+        fileUri,
+        caption: m.document.caption,
       }];
     } else if (m.type === "audio" && m.audio?.id) {
       const { fileUri, mimeType } = await getMediaUrlAndMime(

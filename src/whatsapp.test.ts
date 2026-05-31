@@ -312,14 +312,14 @@ Deno.test("inbound image populates attachments array", async () => {
     if (event.kind !== "message") throw new Error("expected message event");
     assertEquals(event.text, "Check this out");
     assertEquals(event.attachments?.length, 1);
-    assertEquals(event.attachments?.[0].kind, "inline");
+    assertEquals(event.attachments?.[0].kind, "file");
     assertEquals(event.attachments?.[0].mimeType, "image/jpeg");
     assertEquals(event.attachments?.[0].caption, "Check this out");
     assertEquals(
-      event.attachments?.[0].kind === "inline"
-        ? event.attachments[0].dataBase64
+      event.attachments?.[0].kind === "file"
+        ? event.attachments[0].fileUri
         : "",
-      pixelBase64,
+      "https://example.com/download/image.jpg",
     );
   };
 
