@@ -101,4 +101,4 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
         .replace(/<[^>]+>/g, "")
         .trim(),
     ),
-  );
+  ).replace(/(https?:\/\/[^\s)\]\}]+)([)\]\}]+)/g, "$1 $2");

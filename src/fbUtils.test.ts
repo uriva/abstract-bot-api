@@ -186,6 +186,16 @@ const testCases = [
     input: "<blockquote>Hello\nWorld</blockquote>",
     output: "> Hello\n> World",
   },
+  {
+    testName: "handles links inside parentheses",
+    input: "Visit (<a href=\"https://google.com\">Google</a>) for more.",
+    output: "Visit (Google - https://google.com ) for more.",
+  },
+  {
+    testName: "handles markdown links inside brackets",
+    input: "Visit [[Google](https://google.com)] for more.",
+    output: "Visit [Google - https://google.com ] for more.",
+  },
 ];
 
 each(({ testName, input, output }) =>
