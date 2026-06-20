@@ -230,8 +230,61 @@ export const sendTelegramMessage = (token: string): (
   )(chat_id, normalized);
 };
 
+export const convertHtmlTablesToPre = (text: string): string => {
+  return text.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_, tableContent) => {
+    const rows: string[][] = [];
+    const trMatches = tableContent.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    for (const trMatch of trMatches) {
+      const rowContent = trMatch[1];
+      const cells: string[] = [];
+      const cellMatches = rowContent.matchAll(/<(td|th)[^>]*>([\s\S]*?)<\/\1>/gi);
+      for (const cellMatch of cellMatches) {
+        const cellHtml = cellMatch[2];
+        const cleanText = cellHtml.replace(/<[^>]+>/g, "").trim();
+        const decoded = cleanText
+          .replaceAll("&amp;", "&")
+          .replaceAll("&lt;", "<")
+          .replaceAll("&gt;", ">")
+          .replaceAll("&quot;", '"')
+          .replaceAll("&#39;", "'");
+        cells.push(decoded);
+      }
+      if (cells.length > 0) {
+        rows.push(cells);
+      }
+    }
+
+    if (rows.length === 0) return "";
+
+    const numCols = Math.max(...rows.map((r) => r.length));
+    const colWidths = Array(numCols).fill(0);
+    for (const row of rows) {
+      for (let i = 0; i < row.length; i++) {
+        colWidths[i] = Math.max(colWidths[i], row[i].length);
+      }
+    }
+
+    const renderedRows = rows.map((row) => {
+      const paddedCells = colWidths.map((w, i) => {
+        const val = row[i] ?? "";
+        return val.padEnd(w);
+      });
+      return paddedCells.join(" | ");
+    });
+
+    const separator = colWidths.map((w) => "-".repeat(w)).join("-+-");
+    const resultRows = [renderedRows[0]];
+    if (renderedRows.length > 1) {
+      resultRows.push(separator);
+      resultRows.push(...renderedRows.slice(1));
+    }
+
+    return `<pre>${resultRows.join("\n")}</pre>`;
+  });
+};
+
 const telegramMessageText = (text: string) =>
-  sanitizeTelegramHtml(markdownToTelegramHtml(text)).trim();
+  sanitizeTelegramHtml(markdownToTelegramHtml(convertHtmlTablesToPre(text))).trim();
 
 const sendTelegramMessageIfNonempty =
   (send: (chatId: number, text: string) => Promise<string>) =>

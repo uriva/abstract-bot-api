@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  convertHtmlTablesToPre,
   extractImgTag,
   extractVideoTag,
   getBestPhoneFromContactShared,
@@ -286,4 +287,33 @@ Deno.test("sendTelegramMessage skips empty text after normalization", async () =
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+Deno.test("convertHtmlTablesToPre formats HTML table to ASCII inside pre", () => {
+  const input = `Here is the pricing:
+<table>
+  <thead>
+    <tr>
+      <th style="color: blue">Tool</th>
+      <th>Price</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>dFlux d3x</td>
+      <td>Custom</td>
+    </tr>
+    <tr>
+      <td>Spirent</td>
+      <td>$100k+</td>
+    </tr>
+  </tbody>
+</table>`;
+  
+  const res = convertHtmlTablesToPre(input);
+  
+  const expected = `Here is the pricing:
+<pre>Tool      | Price \n----------+-------\ndFlux d3x | Custom\nSpirent   | $100k+</pre>`;
+  
+  assertEquals(res, expected);
 });
