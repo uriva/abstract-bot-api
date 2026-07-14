@@ -3,9 +3,77 @@ import { decodeBase64 } from "@std/encoding";
 import { lastEvent, replyImage, type TaskHandler } from "./index.ts";
 import {
   sendWhatsappImage,
+  sendWhatsappMessage,
+  transientMetaErrorCode,
   whatsappForBusinessInjectDepsAndRun,
   type WhatsappMessage,
 } from "./whatsapp.ts";
+
+const okMessageResponse = (id: string) =>
+  new Response(
+    JSON.stringify({
+      messaging_product: "whatsapp",
+      contacts: [{ input: "123", wa_id: "123" }],
+      messages: [{ id }],
+    }),
+    { status: 200 },
+  );
+
+const transientMetaErrorResponse = () =>
+  new Response(
+    JSON.stringify({
+      error: {
+        message: `(#${transientMetaErrorCode}) Something went wrong`,
+        code: transientMetaErrorCode,
+        type: "OAuthException",
+      },
+    }),
+    { status: 500 },
+  );
+
+Deno.test("sendWhatsappMessage retries transient Meta errors", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = () => {
+    attempts++;
+    return Promise.resolve(
+      attempts < 3
+        ? transientMetaErrorResponse()
+        : okMessageResponse("sent-id"),
+    );
+  };
+
+  try {
+    const id = await sendWhatsappMessage("token", "from-id")("111")("hello");
+    assertEquals(id, "sent-id");
+    assertEquals(attempts, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("sendWhatsappMessage does not retry non-transient errors", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = () => {
+    attempts++;
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({ error: { message: "bad request", code: 100 } }),
+        { status: 400 },
+      ),
+    );
+  };
+
+  try {
+    await assertRejects(() =>
+      sendWhatsappMessage("token", "from-id")("111")("hello")
+    );
+    assertEquals(attempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 Deno.test("sendImage sends link payload with formatted caption", async () => {
   const originalFetch = globalThis.fetch;

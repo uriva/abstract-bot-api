@@ -6,6 +6,7 @@ import type {
 import {
   anymap,
   coerce,
+  conditionalRetry,
   empty,
   filter,
   identity,
@@ -112,27 +113,57 @@ type SentMessageResponse = {
   messages: [{ id: string }];
 };
 
+// Meta's Cloud API intermittently rejects otherwise-valid sends with a generic
+// transient failure (error code 131000, "Something went wrong") or a 5xx. These
+// are not caller errors and a plain resend usually succeeds, so retrying them
+// prevents a single Meta-side hiccup from surfacing as a user-facing crash.
+// https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes
+export const transientMetaErrorCode = 131000;
+
+export const isTransientMetaError = (status: number, body: string): boolean =>
+  status >= 500 || body.includes(`"code":${transientMetaErrorCode}`);
+
+class TransientMetaError extends Error {}
+
+const graphMessagesUrl = (fromNumberId: string) =>
+  `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`;
+
+const postGraphMessage = conditionalRetry(
+  (e: unknown) => e instanceof TransientMetaError,
+)(1000, 3, async (
+  accessToken: string,
+  fromNumberId: string,
+  payload: Record<string, unknown>,
+): Promise<Response> => {
+  const response = await fetch(graphMessagesUrl(fromNumberId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: makeHeaders(accessToken),
+  });
+  if (response.ok) return response;
+  const body = await response.text();
+  if (isTransientMetaError(response.status, body)) {
+    throw new TransientMetaError(body);
+  }
+  throw new Error(body);
+});
+
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) =>
   (to: string): (msg: string) => Promise<string> =>
-    pipe(convertToWhatsAppFormat, (body: string) =>
-      fetch(
-        `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            recipient_type: "individual",
-            type: "text",
-            messaging_product: "whatsapp",
-            to,
-            text: { preview_url: false, body },
-          }),
-          headers: makeHeaders(accessToken),
-        },
-      ).then(async (response) => {
-        if (!response.ok) throw new Error(await response.text());
-        return (await response.json()) as SentMessageResponse;
-      }).then(({ messages: [{ id }] }) => id));
+    pipe(
+      convertToWhatsAppFormat,
+      (body: string) =>
+        postGraphMessage(accessToken, fromNumberId, {
+          recipient_type: "individual",
+          type: "text",
+          messaging_product: "whatsapp",
+          to,
+          text: { preview_url: false, body },
+        }),
+      (response: Response) => response.json() as Promise<SentMessageResponse>,
+      ({ messages: [{ id }] }: SentMessageResponse) => id,
+    );
 
 const isStaleMessageIdError = (text: string): boolean =>
   text.includes('"code":100') && text.includes("does not exist");
@@ -142,27 +173,19 @@ export const sendWhatsappQuotedReply =
   (to: string) =>
   async (text: string, replyToMessageId: string): Promise<string> => {
     const body = convertToWhatsAppFormat(text);
-    const response = await fetch(
-      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          recipient_type: "individual",
-          type: "text",
-          messaging_product: "whatsapp",
-          to,
-          text: { preview_url: false, body },
-          context: { message_id: replyToMessageId },
-        }),
-        headers: makeHeaders(accessToken),
-      },
-    );
-    if (!response.ok) {
-      const errText = await response.text();
-      if (isStaleMessageIdError(errText)) {
-        return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
-      }
-      throw new Error(errText);
+    const response = await postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      type: "text",
+      messaging_product: "whatsapp",
+      to,
+      text: { preview_url: false, body },
+      context: { message_id: replyToMessageId },
+    }).catch((e: unknown) => {
+      if (e instanceof Error && isStaleMessageIdError(e.message)) return e;
+      throw e;
+    });
+    if (response instanceof Error) {
+      return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
     }
     const { messages }: SentMessageResponse = await response.json();
     return messages[0].id;
@@ -257,25 +280,16 @@ export const sendWhatsappImage =
       throw new Error("sendWhatsappImage requires an id, link, or data");
     }
 
-    const response = await fetch(
-      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          recipient_type: "individual",
-          messaging_product: "whatsapp",
-          to,
-          type: "image",
-          image: stripUndefined({
-            ...imageDescriptor,
-            caption: caption ? convertToWhatsAppFormat(caption) : undefined,
-          }),
-        }),
-        headers: makeHeaders(accessToken),
-      },
-    );
-
-    if (!response.ok) throw new Error(await response.text());
+    const response = await postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      messaging_product: "whatsapp",
+      to,
+      type: "image",
+      image: stripUndefined({
+        ...imageDescriptor,
+        caption: caption ? convertToWhatsAppFormat(caption) : undefined,
+      }),
+    });
 
     const { messages } = (await response.json()) as SentMessageResponse;
     return messages[0].id;
@@ -285,21 +299,13 @@ export const sendWhatsappVideo =
   (accessToken: string, fromNumberId: string) =>
   (to: string) =>
   async (link: string): Promise<string> => {
-    const response = await fetch(
-      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          recipient_type: "individual",
-          messaging_product: "whatsapp",
-          to,
-          type: "video",
-          video: { link },
-        }),
-        headers: makeHeaders(accessToken),
-      },
-    );
-    if (!response.ok) throw new Error(await response.text());
+    const response = await postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      messaging_product: "whatsapp",
+      to,
+      type: "video",
+      video: { link },
+    });
     const { messages } = (await response.json()) as SentMessageResponse;
     return messages[0].id;
   };
@@ -324,37 +330,27 @@ export const sendWhatsappTemplate =
     langCode: string,
     components: Component[],
   ): Promise<SentMessageResponse> =>
-    fetch(
-      `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          recipient_type: "individual",
-          messaging_product: "whatsapp",
-          to,
-          type: "template",
-          template: {
-            name,
-            language: { code: langCode },
-            components: components.map((c) => ({
-              ...c,
-              parameters: c.parameters.map((p) =>
-                p.type === "text"
-                  ? ({
-                    type: "text",
-                    text: templateTextParamConstraints(p.text),
-                  })
-                  : p
-              ),
-            })),
-          },
-        }),
-        headers: makeHeaders(accessToken),
+    postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name,
+        language: { code: langCode },
+        components: components.map((c) => ({
+          ...c,
+          parameters: c.parameters.map((p) =>
+            p.type === "text"
+              ? ({
+                type: "text",
+                text: templateTextParamConstraints(p.text),
+              })
+              : p
+          ),
+        })),
       },
-    ).then(async (response) => {
-      if (!response.ok) throw new Error(await response.text());
-      return (await response.json()) as SentMessageResponse;
-    });
+    }).then((response) => response.json() as Promise<SentMessageResponse>);
 
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
 export type WhatsappMessage = WebhookPayload;
