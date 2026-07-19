@@ -45,7 +45,8 @@ const ignoreKick = (err: unknown) => {
     e?.response?.error_code === 403 ||
     e?.message?.includes("PEER_ID_INVALID") ||
     e?.message?.includes("bot was kicked") ||
-    e?.message?.includes("Forbidden")
+    e?.message?.includes("Forbidden") ||
+    e?.message?.includes("chat not found")
   ) {
     console.warn(`Ignoring Telegram error: ${e.message}`);
     return undefined;
