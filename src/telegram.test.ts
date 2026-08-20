@@ -309,11 +309,11 @@ Deno.test("convertHtmlTablesToPre formats HTML table to ASCII inside pre", () =>
     </tr>
   </tbody>
 </table>`;
-  
+
   const res = convertHtmlTablesToPre(input);
-  
+
   const expected = `Here is the pricing:
 <pre>Tool      | Price \n----------+-------\ndFlux d3x | Custom\nSpirent   | $100k+</pre>`;
-  
+
   assertEquals(res, expected);
 });

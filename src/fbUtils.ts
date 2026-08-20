@@ -10,12 +10,28 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
 
 const decodeHtmlEntities = (text: string): string =>
   text
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&hellip;/gi, "…")
+    .replace(/&ndash;/gi, "–")
+    .replace(/&mdash;/gi, "—")
+    .replace(/&(?:lsquo|rsquo|#8216|#8217);/gi, "'")
+    .replace(/&(?:ldquo|rdquo|#8220|#8221);/gi, '"')
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = Number(dec);
+      return code === 160 ? " " : String.fromCodePoint(code);
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return code === 0xa0 ? " " : String.fromCodePoint(code);
+    })
+    .replace(/&amp;/gi, "&")
+    .replace(/\u00A0/g, " ");
 
 const markdownLinkToText = (
   _match: string,
@@ -34,19 +50,20 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
     decodeHtmlEntities(
       message
         .replace(/<br\s*\/?>(?=)/gi, "\n")
-        .replace(/<b>(.*?)<\/b>/gis, "*$1*")
-        .replace(/<i>(.*?)<\/i>/gis, "_$1_")
-        .replace(/<h[1-6]>(.*?)<\/h[1-6]>/gis, "*$1*")
-        .replace(/<u>(.*?)<\/u>/gis, "_$1_")
+        .replace(/<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis, "*$1*")
+        .replace(/<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis, "_$1_")
+        .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, "*$1*")
+        .replace(/<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis, "_$1_")
+        .replace(/<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis, "~$1~")
         .replace(/<code><pre>(.*?)<\/pre><\/code>/gis, "```$1```")
         .replace(/<pre><code>(.*?)<\/code><\/pre>/gis, "```$1```")
-        .replace(/<code>(.*?)<\/code>/gis, (_, content) => {
+        .replace(/<code[^>]*>(.*?)<\/code>/gis, (_, content) => {
           if (content.includes("\n")) {
             return `\`\`\`${content}\`\`\``;
           }
           return `\`${content}\``;
         })
-        .replace(/<pre>(.*?)<\/pre>/gis, "```$1```")
+        .replace(/<pre[^>]*>(.*?)<\/pre>/gis, "```$1```")
         .replace(
           /<\/(div|p|code|pre)>/gi,
           (tag) => tag.includes("code") || tag.includes("pre") ? "" : "\n",

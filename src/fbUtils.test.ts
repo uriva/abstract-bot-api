@@ -188,13 +188,31 @@ const testCases = [
   },
   {
     testName: "handles links inside parentheses",
-    input: "Visit (<a href=\"https://google.com\">Google</a>) for more.",
+    input: 'Visit (<a href="https://google.com">Google</a>) for more.',
     output: "Visit (Google - https://google.com ) for more.",
   },
   {
     testName: "handles markdown links inside brackets",
     input: "Visit [[Google](https://google.com)] for more.",
     output: "Visit [Google - https://google.com ] for more.",
+  },
+  {
+    testName: "handles &nbsp; and html entities",
+    input:
+      '<p style="display: block; text-align: center;">אחרי ההצלחה של האירוע הראשון ממשיכים קדימה &nbsp;בכל הכח ביום חמישי הקרוב!&nbsp;</p>',
+    output:
+      "אחרי ההצלחה של האירוע הראשון ממשיכים קדימה  בכל הכח ביום חמישי הקרוב! ",
+  },
+  {
+    testName: "handles strong, em, and styled headings",
+    input:
+      '<h1 style="text-align: center;">Title</h1>\n<p><strong>Bold</strong> and <em>Italic</em> and <del>Strike</del></p>',
+    output: "*Title*\n*Bold* and _Italic_ and ~Strike~",
+  },
+  {
+    testName: "handles decimal and hex entities",
+    input: "Price: &#8364;10 &#x2605; &nbsp;&#160;done",
+    output: "Price: €10 ★   done",
   },
 ];
 
