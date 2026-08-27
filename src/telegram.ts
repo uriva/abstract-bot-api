@@ -347,13 +347,48 @@ const convertMarkdownSegment = (text: string): string =>
     .replace(/~~(.+?)~~/g, "<s>$1</s>")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
+export const convertHtmlToTelegramFormat = (message: string): string =>
+  message
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, "<b>$1</b>")
+    .replace(/<p[^>]*>/gi, "")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<div[^>]*>/gi, "")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
+      const items = content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+      return items
+        .map((item) => `• ${item.replace(/<\/?li[^>]*>/gi, "").trim()}`)
+        .join("\n");
+    })
+    .replace(/<ol>([\s\S]*?)<\/ol>/gi, (_m, content: string) => {
+      const items = content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+      return items
+        .map((item, index) =>
+          `${index + 1}. ${item.replace(/<\/?li[^>]*>/gi, "").trim()}`
+        )
+        .join("\n");
+    })
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m, item: string) =>
+      `• ${item.trim()}\n`)
+    .replace(/<hr\s*\/?>/gi, "\n---\n")
+    .replace(
+      /<span\s+class=["']tg-spoiler["']>(.*?)<\/span>/gis,
+      "<tg-spoiler>$1</tg-spoiler>",
+    )
+    .replace(
+      /<\/?(?:span|center|font|header|footer|section|article|main|aside|nav|figure|figcaption)[^>]*>/gi,
+      "",
+    )
+    .replace(/<(b|strong|i|em|u|ins|s|strike|del)\s+[^>]*>/gi, "<$1>");
+
 const processOutsideInlineCode = (segment: string): string => {
   const parts = segment.split(/(`[^`\n]+`)/);
   return parts
     .map((part) =>
       part.startsWith("`") && part.endsWith("`")
         ? `<code>${part.slice(1, -1)}</code>`
-        : convertMarkdownSegment(part)
+        : convertMarkdownSegment(convertHtmlToTelegramFormat(part))
     )
     .join("");
 };
@@ -396,6 +431,7 @@ export const sanitizeTelegramHtml = (input: string): string => {
       type: "open" | "close";
       allowedCandidate: boolean;
       restore?: boolean;
+      attr?: string;
       hrefQuoted?: string; // for <a href="...">
       spanSpoiler?: boolean; // for <span class="tg-spoiler">
     };
@@ -406,11 +442,14 @@ export const sanitizeTelegramHtml = (input: string): string => {
     "i",
     "em",
     "u",
+    "ins",
     "s",
     "strike",
     "del",
     "code",
     "pre",
+    "blockquote",
+    "tg-spoiler",
   ]);
 
   const tagRe = /&lt;(\/)?([a-zA-Z0-9]+)((?:[^&]|&(?!gt;|lt;))*?)&gt;/g;
@@ -431,7 +470,11 @@ export const sanitizeTelegramHtml = (input: string): string => {
 
     if (!isClose) {
       if (simpleAllowed.has(name)) {
-        allowedCandidate = attr.length === 0; // no attributes allowed for simple tags
+        if (name === "blockquote") {
+          allowedCandidate = attr.length === 0 || /^expandable$/i.test(attr);
+        } else {
+          allowedCandidate = attr.length === 0; // no attributes allowed for simple tags
+        }
       } else if (name === "a") {
         const hrefMatch = attr.match(/^href=("[^"]*"|'[^']*')$/i);
         if (hrefMatch) {
@@ -460,6 +503,7 @@ export const sanitizeTelegramHtml = (input: string): string => {
       name,
       type: isClose ? "close" : "open",
       allowedCandidate,
+      attr,
       hrefQuoted,
       spanSpoiler,
     });
@@ -499,7 +543,11 @@ export const sanitizeTelegramHtml = (input: string): string => {
     } else if (t.restore) {
       if (t.type === "open") {
         if (simpleAllowed.has(t.name)) {
-          result += `<${t.name}>`;
+          if (t.name === "blockquote" && /^expandable$/i.test(t.attr ?? "")) {
+            result += `<blockquote expandable>`;
+          } else {
+            result += `<${t.name}>`;
+          }
         } else if (t.name === "a" && t.hrefQuoted) {
           result += `<a href=${t.hrefQuoted}>`;
         } else if (t.name === "span" && t.spanSpoiler) {

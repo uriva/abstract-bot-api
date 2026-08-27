@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   convertHtmlTablesToPre,
+  convertHtmlToTelegramFormat,
   extractImgTag,
   extractVideoTag,
   getBestPhoneFromContactShared,
@@ -316,4 +317,118 @@ Deno.test("convertHtmlTablesToPre formats HTML table to ASCII inside pre", () =>
 <pre>Tool      | Price \n----------+-------\ndFlux d3x | Custom\nSpirent   | $100k+</pre>`;
 
   assertEquals(res, expected);
+});
+
+Deno.test("convertHtmlToTelegramFormat converts h1-h6 to bold", () => {
+  assertEquals(
+    convertHtmlToTelegramFormat("<h3>Heading 3</h3>"),
+    "<b>Heading 3</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<h1>Heading 1</h1>"),
+    "<b>Heading 1</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<h2>Heading 2</h2>"),
+    "<b>Heading 2</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<h4>Heading 4</h4>"),
+    "<b>Heading 4</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<h5>Heading 5</h5>"),
+    "<b>Heading 5</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<h6>Heading 6</h6>"),
+    "<b>Heading 6</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat(
+      '<h3 class="title" id="sec1">Heading with attrs</h3>',
+    ),
+    "<b>Heading with attrs</b>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<H3>Case Insensitive</H3>"),
+    "<b>Case Insensitive</b>",
+  );
+});
+
+Deno.test("convertHtmlToTelegramFormat converts line breaks and paragraphs", () => {
+  assertEquals(
+    convertHtmlToTelegramFormat("Line 1<br>Line 2<br/>Line 3<br />Line 4"),
+    "Line 1\nLine 2\nLine 3\nLine 4",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat("<p>Paragraph 1</p><p>Paragraph 2</p>"),
+    "Paragraph 1\nParagraph 2\n",
+  );
+});
+
+Deno.test("convertHtmlToTelegramFormat converts lists", () => {
+  const ulInput = "<ul><li>Item A</li><li>Item B</li></ul>";
+  assertEquals(convertHtmlToTelegramFormat(ulInput), "• Item A\n• Item B");
+
+  const olInput = "<ol><li>First</li><li>Second</li></ol>";
+  assertEquals(convertHtmlToTelegramFormat(olInput), "1. First\n2. Second");
+});
+
+Deno.test("convertHtmlToTelegramFormat strips unneeded span and container tags", () => {
+  assertEquals(
+    convertHtmlToTelegramFormat('<span style="color:red">styled text</span>'),
+    "styled text",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat('<span class="tg-spoiler">spoiler text</span>'),
+    "<tg-spoiler>spoiler text</tg-spoiler>",
+  );
+  assertEquals(
+    convertHtmlToTelegramFormat(
+      "<center><font color='blue'>Centered font</font></center>",
+    ),
+    "Centered font",
+  );
+});
+
+Deno.test("markdownToTelegramHtml + sanitizeTelegramHtml converts h3 and HTML tags end-to-end", () => {
+  const input =
+    "<h3>Team Overview</h3>\n<p>Here are the details:</p>\n<ul><li>Alice</li><li>Bob</li></ul>";
+  const result = sanitizeTelegramHtml(markdownToTelegramHtml(input));
+  assertEquals(
+    result,
+    "<b>Team Overview</b>\nHere are the details:\n\n• Alice\n• Bob",
+  );
+});
+
+Deno.test("markdownToTelegramHtml does not convert HTML inside code blocks", () => {
+  const input = "```html\n<h3>Do Not Convert</h3>\n```\n<h3>Do Convert</h3>";
+  const result = sanitizeTelegramHtml(markdownToTelegramHtml(input));
+  assertEquals(
+    result,
+    "<pre>&lt;h3&gt;Do Not Convert&lt;/h3&gt;</pre>\n<b>Do Convert</b>",
+  );
+});
+
+Deno.test("markdownToTelegramHtml does not convert HTML inside inline code", () => {
+  const input = "Use `<h3>` for headers, and <h3>My Title</h3> for section";
+  const result = sanitizeTelegramHtml(markdownToTelegramHtml(input));
+  assertEquals(
+    result,
+    "Use <code>&lt;h3&gt;</code> for headers, and <b>My Title</b> for section",
+  );
+});
+
+Deno.test("sanitizeTelegramHtml preserves blockquote and expandable blockquote", () => {
+  assertEquals(
+    sanitizeTelegramHtml("<blockquote>Simple quote</blockquote>"),
+    "<blockquote>Simple quote</blockquote>",
+  );
+  assertEquals(
+    sanitizeTelegramHtml(
+      "<blockquote expandable>Expandable quote</blockquote>",
+    ),
+    "<blockquote expandable>Expandable quote</blockquote>",
+  );
 });
