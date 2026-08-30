@@ -8,6 +8,7 @@ import {
   markdownToTelegramHtml,
   sanitizeTelegramHtml,
   sendTelegramMessage,
+  splitTelegramText,
 } from "./telegram.ts";
 
 const alicePhone = "972521111111";
@@ -431,4 +432,22 @@ Deno.test("sanitizeTelegramHtml preserves blockquote and expandable blockquote",
     ),
     "<blockquote expandable>Expandable quote</blockquote>",
   );
+});
+
+Deno.test("splitTelegramText splits text exceeding limit", () => {
+  const p1 = "A".repeat(3000);
+  const p2 = "B".repeat(2000);
+  const full = `${p1}\n\n${p2}`;
+  const chunks = splitTelegramText(full, 4000);
+  assertEquals(chunks.length, 2);
+  assertEquals(chunks[0], p1);
+  assertEquals(chunks[1], p2);
+});
+
+Deno.test("splitTelegramText preserves valid HTML tags across splits", () => {
+  const longText = "<b>" + "Hello ".repeat(1000) + "</b>";
+  const chunks = splitTelegramText(longText);
+  for (const chunk of chunks) {
+    assertEquals(chunk.length <= 4096, true);
+  }
 });

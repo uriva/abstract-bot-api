@@ -189,46 +189,67 @@ async (
   });
 };
 
+export const splitTelegramText = (text: string, limit = 3800): string[] => {
+  if (text.length <= limit) return [text];
+  const parts: string[] = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf("\n\n", limit);
+    if (cut <= 0) cut = rest.lastIndexOf("\n", limit);
+    if (cut <= 0) cut = rest.lastIndexOf(" ", limit);
+    if (cut <= 0) cut = limit;
+    parts.push(sanitizeTelegramHtml(rest.slice(0, cut)));
+    rest = rest.slice(cut).trimStart();
+  }
+  if (rest) parts.push(sanitizeTelegramHtml(rest));
+  return parts;
+};
+
 export const sendTelegramMessage = (token: string): (
   chat_id: number,
   text: string,
 ) => Promise<string> =>
-(chat_id: number, text: string) => {
+async (chat_id: number, text: string) => {
   const normalized = telegramMessageText(text);
-  if (!normalized) return Promise.resolve("");
-  return pipe(
-    retry(
-      2,
-      500,
-      (chat_id: number, text: string) =>
-        fetch(`${tokenToTelegramURL(token)}sendMessage`, {
-          method: "POST",
-          headers: { "Content-type": "application/json" },
-          body: JSON.stringify({
-            chat_id,
-            text,
-            disable_web_page_preview: true,
-            parse_mode: "HTML" as ParseMode,
-          }),
-        }).then((r) => r.json()),
-    ),
-    (response: ApiResponse<Message>) => {
-      if (response.ok) return response.result.message_id.toString();
-      if (
-        response.error_code === 403 ||
-        response.description.includes("PEER_ID_INVALID") ||
-        response.description.includes("bot was kicked")
-      ) {
-        console.warn(
-          `Ignoring Telegram error: ${response.error_code} ${response.description}`,
+  if (!normalized) return "";
+  const chunks = splitTelegramText(normalized, 4000);
+  let lastMsgId = "";
+  for (const chunk of chunks) {
+    lastMsgId = await pipe(
+      retry(
+        2,
+        500,
+        (chat_id: number, text: string) =>
+          fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+            method: "POST",
+            headers: { "Content-type": "application/json" },
+            body: JSON.stringify({
+              chat_id,
+              text,
+              disable_web_page_preview: true,
+              parse_mode: "HTML" as ParseMode,
+            }),
+          }).then((r) => r.json()),
+      ),
+      (response: ApiResponse<Message>) => {
+        if (response.ok) return response.result.message_id.toString();
+        if (
+          response.error_code === 403 ||
+          response.description.includes("PEER_ID_INVALID") ||
+          response.description.includes("bot was kicked")
+        ) {
+          console.warn(
+            `Ignoring Telegram error: ${response.error_code} ${response.description}`,
+          );
+          return "";
+        }
+        throw new Error(
+          `Telegram error: ${response.error_code} ${response.description}`,
         );
-        return "";
-      }
-      throw new Error(
-        `Telegram error: ${response.error_code} ${response.description}`,
-      );
-    },
-  )(chat_id, normalized);
+      },
+    )(chat_id, chunk);
+  }
+  return lastMsgId;
 };
 
 export const convertHtmlTablesToPre = (text: string): string => {
