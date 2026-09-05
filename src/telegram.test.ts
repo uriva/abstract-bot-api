@@ -9,6 +9,7 @@ import {
   sanitizeTelegramHtml,
   sendTelegramMessage,
   splitTelegramText,
+  telegramNormalizeEvent,
 } from "./telegram.ts";
 
 const alicePhone = "972521111111";
@@ -449,5 +450,163 @@ Deno.test("splitTelegramText preserves valid HTML tags across splits", () => {
   const chunks = splitTelegramText(longText);
   for (const chunk of chunks) {
     assertEquals(chunk.length <= 4096, true);
+  }
+});
+
+Deno.test("telegramNormalizeEvent populates caption as text and extracts document attachment", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchedUrl = "";
+  globalThis.fetch = (input: string | URL | Request) => {
+    fetchedUrl = String(input);
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          result: { file_path: "documents/file_1.pdf" },
+        }),
+      ),
+    );
+  };
+
+  try {
+    const event = await telegramNormalizeEvent("bot-token", {
+      message_id: 1234,
+      date: 1700000000,
+      chat: { id: 5678, type: "private", first_name: "Test" },
+      caption: "Here is the contract",
+      document: {
+        file_id: "doc+id=123",
+        file_unique_id: "uniq1",
+        file_name: "contract.pdf",
+        mime_type: "application/pdf",
+        file_size: 1024,
+      },
+    });
+    if (event.kind !== "message") throw new Error("expected message event");
+
+    assertEquals(
+      fetchedUrl,
+      "https://api.telegram.org/botbot-token/getFile?file_id=doc%2Bid%3D123",
+    );
+    assertEquals(event.text, "Here is the contract");
+    assertEquals(event.attachments?.length, 1);
+    assertEquals(event.attachments?.[0], {
+      kind: "file",
+      mimeType: "application/pdf",
+      fileUri:
+        "https://api.telegram.org/file/botbot-token/documents/file_1.pdf",
+      caption: "Here is the contract",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("telegramNormalizeEvent uses file_name as attachment caption when message has no caption", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          result: { file_path: "documents/plan.pdf" },
+        }),
+      ),
+    );
+
+  try {
+    const event = await telegramNormalizeEvent("bot-token", {
+      message_id: 1235,
+      date: 1700000000,
+      chat: { id: 5678, type: "private", first_name: "Test" },
+      document: {
+        file_id: "doc456",
+        file_unique_id: "uniq2",
+        file_name: "renovation_plan.pdf",
+        mime_type: "application/pdf",
+        file_size: 2048,
+      },
+    });
+    if (event.kind !== "message") throw new Error("expected message event");
+
+    assertEquals(event.text, "");
+    assertEquals(event.attachments?.length, 1);
+    assertEquals(event.attachments?.[0].caption, "renovation_plan.pdf");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("telegramNormalizeEvent adds descriptive note when document exceeds 20MB limit", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  globalThis.fetch = () => {
+    fetchCalled = true;
+    return Promise.resolve(new Response(""));
+  };
+
+  try {
+    const event = await telegramNormalizeEvent("bot-token", {
+      message_id: 1236,
+      date: 1700000000,
+      chat: { id: 5678, type: "private", first_name: "Test" },
+      document: {
+        file_id: "large_doc",
+        file_unique_id: "uniq3",
+        file_name: "huge_scan.pdf",
+        mime_type: "application/pdf",
+        file_size: 25 * 1024 * 1024,
+      },
+    });
+    if (event.kind !== "message") throw new Error("expected message event");
+
+    assertEquals(fetchCalled, false);
+    assertEquals(event.attachments?.length, 0);
+    assertEquals(
+      event.text,
+      '[Attached document "huge_scan.pdf": file exceeds Telegram\'s 20MB bot limit (25MB)]',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("telegramNormalizeEvent adds descriptive note when document getFile fails", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: false,
+          error_code: 400,
+          description: "Bad Request: file is too big",
+        }),
+        { status: 400 },
+      ),
+    );
+
+  try {
+    const event = await telegramNormalizeEvent("bot-token", {
+      message_id: 1237,
+      date: 1700000000,
+      chat: { id: 5678, type: "private", first_name: "Test" },
+      caption: "Please review",
+      document: {
+        file_id: "doc_fail",
+        file_unique_id: "uniq4",
+        file_name: "document.pdf",
+        mime_type: "application/pdf",
+        file_size: 19 * 1024 * 1024,
+      },
+    });
+    if (event.kind !== "message") throw new Error("expected message event");
+
+    assertEquals(event.attachments?.length, 0);
+    assertEquals(
+      event.text,
+      'Please review\n\n[Attached document "document.pdf": file exceeds Telegram\'s 20MB bot limit]',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });

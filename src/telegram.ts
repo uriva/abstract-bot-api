@@ -631,17 +631,41 @@ const getMimeTypeFromExtension = (filePath: string): string => {
   return mimeTypes[ext] || "application/octet-stream";
 };
 
+const maxTelegramBotFileSize = 20 * 1024 * 1024;
+
+const formatMb = (bytes: number) => Math.round(bytes / (1024 * 1024));
+
+const isTooLargeForTelegram = (fileSize?: number): boolean =>
+  Boolean(fileSize && fileSize > maxTelegramBotFileSize);
+
+const parseFetchErrorReason = (err: unknown): string => {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("file is too big")) {
+    return "file exceeds Telegram's 20MB bot limit";
+  }
+  return "could not be downloaded from Telegram";
+};
+
 const fileIdToUrlAndMime =
   (token: string) =>
   async (fileId: string): Promise<{ fileUri: string; mimeType: string }> => {
     const response = await fetch(
-      `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
+      `https://api.telegram.org/bot${token}/getFile?file_id=${
+        encodeURIComponent(fileId)
+      }`,
     );
-    if (!response.ok) throw new Error("could not fetch file url");
-    const { result: { file_path } } = await response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `could not fetch file url: ${response.status} ${errorText}`,
+      );
+    }
+    const data = await response.json();
+    const filePath = data?.result?.file_path;
+    if (!filePath) throw new Error("file_path not present in getFile response");
     return {
-      fileUri: `https://api.telegram.org/file/bot${token}/${file_path}`,
-      mimeType: getMimeTypeFromExtension(file_path),
+      fileUri: `https://api.telegram.org/file/bot${token}/${filePath}`,
+      mimeType: getMimeTypeFromExtension(filePath),
     };
   };
 
@@ -659,7 +683,8 @@ async (
 
 const mediaFileAttachment = (token: string) =>
 async (
-  file: { file_id: string; mime_type?: string },
+  file: { file_id: string; mime_type?: string; file_name?: string },
+  caption?: string,
 ): Promise<MediaAttachment> => {
   const { fileUri, mimeType } = await fileIdToUrlAndMime(token)(
     file.file_id,
@@ -668,6 +693,7 @@ async (
     kind: "file",
     mimeType: file.mime_type || mimeType,
     fileUri,
+    caption: caption ?? file.file_name,
   };
 };
 
@@ -696,6 +722,139 @@ export const getBestPhoneFromContactShared = ({
   return phone_number;
 };
 
+const normalizePhoto = async (
+  token: string,
+  photo?: Message["photo"],
+  caption?: string,
+): Promise<{ attachment?: MediaAttachment; errorNote?: string }> => {
+  if (!photo) return {};
+  try {
+    const attachment = await photoAttachment(token)(photo, caption);
+    return { attachment };
+  } catch (err) {
+    console.warn(
+      `[telegram-normalize] Failed to fetch photo attachment, skipping:`,
+      err,
+    );
+    return {
+      errorNote: "[Attached photo could not be downloaded from Telegram]",
+    };
+  }
+};
+
+const normalizeVoice = async (
+  token: string,
+  voice?: Message["voice"],
+  caption?: string,
+): Promise<{ attachment?: MediaAttachment; errorNote?: string }> => {
+  if (!voice) return {};
+  try {
+    const attachment = await mediaFileAttachment(token)(voice, caption);
+    return { attachment };
+  } catch (err) {
+    console.warn(
+      `[telegram-normalize] Failed to fetch voice attachment, skipping:`,
+      err,
+    );
+    return {
+      errorNote:
+        "[Attached voice message could not be downloaded from Telegram]",
+    };
+  }
+};
+
+const normalizeDocument = async (
+  token: string,
+  document: Message["document"],
+  caption?: string,
+): Promise<{ attachment?: MediaAttachment; errorNote?: string }> => {
+  if (!document) return {};
+  const fileName = document.file_name || "file";
+  if (isTooLargeForTelegram(document.file_size)) {
+    const sizeMb = formatMb(document.file_size!);
+    console.warn(
+      `[telegram-normalize] Document exceeds Telegram Bot API 20MB limit (${sizeMb}MB), skipping getFile`,
+    );
+    return {
+      errorNote:
+        `[Attached document "${fileName}": file exceeds Telegram's 20MB bot limit (${sizeMb}MB)]`,
+    };
+  }
+  try {
+    const attachment = await mediaFileAttachment(token)(document, caption);
+    return { attachment };
+  } catch (err) {
+    console.warn(
+      `[telegram-normalize] Failed to fetch document attachment, skipping:`,
+      err,
+    );
+    return {
+      errorNote: `[Attached document "${fileName}": ${
+        parseFetchErrorReason(err)
+      }]`,
+    };
+  }
+};
+
+const normalizeVideo = async (
+  token: string,
+  video?: Message["video"],
+  caption?: string,
+): Promise<{ attachment?: MediaAttachment; errorNote?: string }> => {
+  if (!video) return {};
+  if (isTooLargeForTelegram(video.file_size)) {
+    const sizeMb = formatMb(video.file_size!);
+    console.warn(
+      `[telegram-normalize] Video exceeds Telegram Bot API 20MB limit (${sizeMb}MB), skipping getFile`,
+    );
+    return {
+      errorNote:
+        `[Attached video: file exceeds Telegram's 20MB bot limit (${sizeMb}MB)]`,
+    };
+  }
+  try {
+    const attachment = await mediaFileAttachment(token)(video, caption);
+    return { attachment };
+  } catch (err) {
+    console.warn(
+      `[telegram-normalize] Failed to fetch video attachment, skipping:`,
+      err,
+    );
+    return {
+      errorNote: "[Attached video could not be downloaded from Telegram]",
+    };
+  }
+};
+
+const normalizeAudio = async (
+  token: string,
+  audio?: Message["audio"],
+  caption?: string,
+): Promise<{ attachment?: MediaAttachment; errorNote?: string }> => {
+  if (!audio) return {};
+  const fileName = audio.file_name || "audio";
+  if (isTooLargeForTelegram(audio.file_size)) {
+    const sizeMb = formatMb(audio.file_size!);
+    return {
+      errorNote:
+        `[Attached audio "${fileName}": file exceeds Telegram's 20MB bot limit (${sizeMb}MB)]`,
+    };
+  }
+  try {
+    const attachment = await mediaFileAttachment(token)(audio, caption);
+    return { attachment };
+  } catch (err) {
+    console.warn(
+      `[telegram-normalize] Failed to fetch audio attachment, skipping:`,
+      err,
+    );
+    return {
+      errorNote:
+        `[Attached audio "${fileName}" could not be downloaded from Telegram]`,
+    };
+  }
+};
+
 export const telegramNormalizeEvent = async (
   token: string,
   {
@@ -704,58 +863,63 @@ export const telegramNormalizeEvent = async (
     contact,
     photo,
     caption,
+    caption_entities,
     voice,
     from,
     document,
+    video,
+    audio,
     location,
     reply_to_message,
     message_id,
     date,
   }: Message,
 ): Promise<ConversationEvent> => {
-  const attachments: MediaAttachment[] = [];
-  if (photo) {
-    try {
-      attachments.push(await photoAttachment(token)(photo, caption));
-    } catch (err) {
-      console.warn(
-        `[telegram-normalize] Failed to fetch photo attachment, skipping:`,
-        err,
-      );
-    }
-  }
-  if (voice) {
-    try {
-      attachments.push(await mediaFileAttachment(token)(voice));
-    } catch (err) {
-      console.warn(
-        `[telegram-normalize] Failed to fetch voice attachment, skipping:`,
-        err,
-      );
-    }
-  }
-  if (document) {
-    try {
-      attachments.push(await mediaFileAttachment(token)(document));
-    } catch (err) {
-      console.warn(
-        `[telegram-normalize] Failed to fetch document attachment, skipping:`,
-        err,
-      );
-    }
-  }
+  const [photoResult, voiceResult, docResult, videoResult, audioResult] =
+    await Promise.all([
+      normalizePhoto(token, photo, caption),
+      normalizeVoice(token, voice, caption),
+      normalizeDocument(token, document, caption),
+      normalizeVideo(token, video, caption),
+      normalizeAudio(token, audio, caption),
+    ]);
+
+  const attachments: MediaAttachment[] = [
+    photoResult.attachment,
+    voiceResult.attachment,
+    docResult.attachment,
+    videoResult.attachment,
+    audioResult.attachment,
+  ].filter((a): a is MediaAttachment => a !== undefined);
+
+  const errorNotes = [
+    photoResult.errorNote,
+    voiceResult.errorNote,
+    docResult.errorNote,
+    videoResult.errorNote,
+    audioResult.errorNote,
+  ].filter(Boolean);
+
   const locationText = location
     ? `https://maps.google.com/maps?q=${location.latitude},${location.longitude}`
     : "";
-  const textWithLinks = (text ?? "") +
-    (entities ?? []).map((x) => x.type === "text_link" ? x.url : "").filter(
-      (x) => x,
-    ).join("\n");
+  const rawText = text ?? caption ?? "";
+  const rawEntities = entities ?? caption_entities ?? [];
+  const textWithLinks = rawText +
+    rawEntities
+      .map((x) => (x.type === "text_link" ? x.url : ""))
+      .filter(Boolean)
+      .join("\n");
+
+  const fullText = [textWithLinks, ...errorNotes, locationText]
+    .filter(Boolean)
+    .join("\n\n");
+
   return {
     kind: "message",
     id: message_id.toString(),
     time: date * 1000,
-    text: [textWithLinks, locationText].filter((x) => x).join("\n"),
+    text: fullText,
     contact: contact && {
       name: contactToFullName(contact),
       phone: getBestPhoneFromContactShared(contact),
