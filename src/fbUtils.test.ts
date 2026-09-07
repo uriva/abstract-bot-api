@@ -214,6 +214,33 @@ const testCases = [
     input: "Price: &#8364;10 &#x2605; &nbsp;&#160;done",
     output: "Price: €10 ★   done",
   },
+  {
+    testName:
+      "formats multi-line italics line-by-line for WhatsApp compatibility",
+    input: '<i>"Hello, good afternoon :)\nWould you like to try our demo?"</i>',
+    output: '_"Hello, good afternoon :)_\n_Would you like to try our demo?"_',
+  },
+  {
+    testName: "formats multi-line bold line-by-line",
+    input: "<b>Important note:\nPlease read carefully.</b>",
+    output: "*Important note:*\n*Please read carefully.*",
+  },
+  {
+    testName: "formats multi-line italics with blank lines",
+    input: "<i>First paragraph.\n\nSecond paragraph.</i>",
+    output: "_First paragraph._\n\n_Second paragraph._",
+  },
+  {
+    testName: "formats multi-line markdown bold across line breaks",
+    input: "**Line 1\nLine 2**",
+    output: "*Line 1*\n*Line 2*",
+  },
+  {
+    testName:
+      "formats multi-line italics preserving blockquote and list prefixes",
+    input: "<i>> Quoted line 1\n> Quoted line 2\n* Item 1\n1. First step</i>",
+    output: "> _Quoted line 1_\n> _Quoted line 2_\n* _Item 1_\n1. _First step_",
+  },
 ];
 
 each(({ testName, input, output }) =>

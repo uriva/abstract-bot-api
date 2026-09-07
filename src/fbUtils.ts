@@ -33,6 +33,24 @@ const decodeHtmlEntities = (text: string): string =>
     .replace(/&amp;/gi, "&")
     .replace(/\u00A0/g, " ");
 
+const linePrefixRegex = /^(\s*(?:(?:>|[-*•]|\d+[\.)])\s+)?)(.*?)(\s*)$/;
+
+const wrapLine = (delimiter: string) => (line: string): string => {
+  const match = linePrefixRegex.exec(line);
+  if (!match || !match[2]) return line;
+  if (
+    match[2].startsWith(delimiter) &&
+    match[2].endsWith(delimiter) &&
+    match[2].length >= 2 * delimiter.length
+  ) {
+    return line;
+  }
+  return `${match[1]}${delimiter}${match[2]}${delimiter}${match[3]}`;
+};
+
+const wrapWithDelimiter = (delimiter: string) => (text: string): string =>
+  text.split("\n").map(wrapLine(delimiter)).join("\n");
+
 const markdownLinkToText = (
   _match: string,
   text: string,
@@ -43,18 +61,13 @@ const convertMarkdownToFacebookFormat = (message: string): string =>
   message
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, markdownLinkToText)
     .replace(/^(#{1,6})\s+(.+)$/gm, "*$2*")
-    .replace(/\*\*([^*]+)\*\*/g, "*$1*");
+    .replace(/\*\*([^*]+)\*\*/g, (_, c) => wrapWithDelimiter("*")(c));
 
 export const convertHtmlToFacebookFormat = (message: string): string =>
   convertMarkdownToFacebookFormat(
     decodeHtmlEntities(
       message
         .replace(/<br\s*\/?>(?=)/gi, "\n")
-        .replace(/<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis, "*$1*")
-        .replace(/<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis, "_$1_")
-        .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, "*$1*")
-        .replace(/<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis, "_$1_")
-        .replace(/<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis, "~$1~")
         .replace(/<code><pre>(.*?)<\/pre><\/code>/gis, "```$1```")
         .replace(/<pre><code>(.*?)<\/code><\/pre>/gis, "```$1```")
         .replace(/<code[^>]*>(.*?)<\/code>/gis, (_, content) => {
@@ -69,6 +82,26 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           (tag) => tag.includes("code") || tag.includes("pre") ? "" : "\n",
         )
         .replace(/<(div|p)[^>]*>/gi, "")
+        .replace(
+          /<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis,
+          (_, c) => wrapWithDelimiter("*")(c),
+        )
+        .replace(
+          /<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis,
+          (_, c) => wrapWithDelimiter("_")(c),
+        )
+        .replace(
+          /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis,
+          (_, c) => wrapWithDelimiter("*")(c),
+        )
+        .replace(
+          /<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis,
+          (_, c) => wrapWithDelimiter("_")(c),
+        )
+        .replace(
+          /<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis,
+          (_, c) => wrapWithDelimiter("~")(c),
+        )
         .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
         .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
           const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
