@@ -1,8 +1,11 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { decodeBase64 } from "@std/encoding";
-import { lastEvent, replyImage, type TaskHandler } from "./index.ts";
+import { lastEvent, reply, replyImage, type TaskHandler } from "./index.ts";
 import {
+  extractButtonsTag,
+  formatButtonsFallback,
   sendWhatsappImage,
+  sendWhatsappInteractiveButtons,
   sendWhatsappMessage,
   transientMetaErrorCode,
   whatsappForBusinessInjectDepsAndRun,
@@ -393,6 +396,199 @@ Deno.test("inbound image populates attachments array", async () => {
 
   try {
     await whatsappForBusinessInjectDepsAndRun("token", handler)(message);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("extractButtonsTag extracts buttons and cleans text", () => {
+  const result = extractButtonsTag(
+    'Would you like weekly event updates?\n<button id="yes">Yes</button>\n<button id="no">No</button>',
+  );
+  assertEquals(result, {
+    remainingText: "Would you like weekly event updates?",
+    buttons: [
+      { id: "yes", title: "Yes" },
+      { id: "no", title: "No" },
+    ],
+  });
+});
+
+Deno.test("extractButtonsTag generates id when omitted and handles <buttons> container", () => {
+  const result = extractButtonsTag(
+    "רוצה לקבל עדכונים?\n<buttons>\n  <button>כן</button>\n  <button>לא</button>\n</buttons>",
+  );
+  assertEquals(result, {
+    remainingText: "רוצה לקבל עדכונים?",
+    buttons: [
+      { id: "btn_0_כן", title: "כן" },
+      { id: "btn_1_לא", title: "לא" },
+    ],
+  });
+});
+
+Deno.test("extractButtonsTag truncates button title to 20 chars and returns null on no buttons", () => {
+  assertEquals(extractButtonsTag("Plain text without buttons"), null);
+  const result = extractButtonsTag(
+    "Choose: <button>Very long button title that exceeds twenty chars</button>",
+  );
+  assertEquals(result?.buttons[0].title.length, 20);
+});
+
+Deno.test("formatButtonsFallback creates readable bracketed choices", () => {
+  const text = formatButtonsFallback("Do you want alerts?", [
+    { id: "1", title: "Yes" },
+    { id: "2", title: "No" },
+  ]);
+  assertEquals(text, "Do you want alerts?\n\n[Yes]  [No]");
+});
+
+Deno.test("sendWhatsappInteractiveButtons posts interactive message payload", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: "interactive-btn-msg-id" }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappInteractiveButtons("token", "from-id")("111");
+    const id = await send("Would you like updates?", [
+      { id: "btn_yes", title: "Yes" },
+      { id: "btn_no", title: "No" },
+    ]);
+    assertEquals(id, "interactive-btn-msg-id");
+    assertEquals(calls.length, 1);
+    const body = JSON.parse(calls[0].init?.body as string);
+    assertEquals(body.type, "interactive");
+    assertEquals(body.interactive.type, "button");
+    assertEquals(body.interactive.body.text, "Would you like updates?");
+    assertEquals(body.interactive.action.buttons, [
+      { type: "reply", reply: { id: "btn_yes", title: "Yes" } },
+      { type: "reply", reply: { id: "btn_no", title: "No" } },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("sendWhatsappInteractiveButtons falls back to text when buttons > 3", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: "fallback-text-msg-id" }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappInteractiveButtons("token", "from-id")("111");
+    const id = await send("Pick one:", ["A", "B", "C", "D"]);
+    assertEquals(id, "fallback-text-msg-id");
+    assertEquals(calls.length, 1);
+    const body = JSON.parse(calls[0].init?.body as string);
+    assertEquals(body.type, "text");
+    assertEquals(body.text.body, "Pick one:\n\n[A]  [B]  [C]  [D]");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("whatsappForBusinessInjectDepsAndRun sends buttons and handles incoming interactive button reply", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: "outbound-interactive-id" }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  const incomingInteractiveMsg: WhatsappMessage = {
+    object: "whatsapp_business_account",
+    entry: [{
+      id: "entry-id",
+      changes: [{
+        field: "messages",
+        value: {
+          messaging_product: "whatsapp",
+          metadata: {
+            phone_number_id: "from-number-id",
+            display_phone_number: "5555",
+          },
+          contacts: [{ profile: { name: "Sender" }, wa_id: "111" }],
+          messages: [{
+            from: "111",
+            id: "button-reply-wamid",
+            timestamp: "0",
+            type: "interactive",
+            context: {
+              id: "original-question-wamid",
+              forwarded: false,
+              frequently_forwarded: false,
+            },
+            interactive: {
+              type: "button_reply",
+              button_reply: {
+                id: "btn_yes",
+                title: "כן",
+              },
+            },
+          }],
+        },
+      }],
+    }],
+  };
+
+  const handler: TaskHandler = async () => {
+    const event = lastEvent();
+    if (event.kind !== "message") throw new Error("expected message event");
+    assertEquals(event.text, "כן");
+    assertEquals(event.referencedMessageId, "original-question-wamid");
+
+    // Test outbound reply with button tags sends interactive message
+    await reply(
+      'תרצה עוד משהו?\n<button id="more_yes">כן</button>\n<button id="more_no">לא</button>',
+    );
+  };
+
+  try {
+    await whatsappForBusinessInjectDepsAndRun("token", handler)(
+      incomingInteractiveMsg,
+    );
+    assertEquals(calls.length, 1);
+    const sentBody = JSON.parse(calls[0].init?.body as string);
+    assertEquals(sentBody.type, "interactive");
+    assertEquals(sentBody.interactive.type, "button");
+    assertEquals(sentBody.interactive.body.text, "תרצה עוד משהו?");
+    assertEquals(sentBody.interactive.action.buttons, [
+      { type: "reply", reply: { id: "more_yes", title: "כן" } },
+      { type: "reply", reply: { id: "more_no", title: "לא" } },
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
   }

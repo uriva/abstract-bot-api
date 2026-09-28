@@ -32,6 +32,7 @@ import {
   injectSpinner,
   injectTyping,
   injectUserId,
+  type InteractiveButton,
   type MediaAttachment,
 } from "./api.ts";
 import {
@@ -97,11 +98,30 @@ type LocationMessage = {
   };
 };
 
+type InteractiveReplyMessage = {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: "interactive";
+  context?: {
+    id?: string;
+    from?: string;
+    forwarded?: boolean;
+    frequently_forwarded?: boolean;
+  };
+  interactive: {
+    type: "button_reply" | "list_reply";
+    button_reply?: { id: string; title: string };
+    list_reply?: { id: string; title: string; description?: string };
+  };
+};
+
 type ExtendedWebhookMessage =
   | (WebhookMessage & { context?: MessageContext })
   | ContactsMessage
   | ReactionMessage
-  | LocationMessage;
+  | LocationMessage
+  | InteractiveReplyMessage;
 
 const apiVersion = "v21.0";
 
@@ -189,6 +209,92 @@ export const sendWhatsappQuotedReply =
     }
     const { messages }: SentMessageResponse = await response.json();
     return messages[0].id;
+  };
+
+const buttonTagRegex =
+  /<button(?:\s+[^>]*\bid=["']([^"']+)["'])?[^>]*>([\s\S]*?)<\/button>|<button(?:\s+[^>]*\bid=["']([^"']+)["'])?[^>]*\btitle=["']([^"']+)["'][^>]*\/?>/gi;
+
+export const extractButtonsTag = (
+  text: string,
+): { buttons: InteractiveButton[]; remainingText: string } | null => {
+  if (!text.toLowerCase().includes("<button")) return null;
+  const matches = [...text.matchAll(buttonTagRegex)];
+  if (empty(matches)) return null;
+  const buttons: InteractiveButton[] = matches.map((match, index) => {
+    const id = match[1] || match[3];
+    const rawTitle = (match[2] !== undefined ? match[2] : match[4]) || "";
+    const title = truncate(20)(rawTitle.replace(/<[^>]+>/g, "").trim());
+    const cleanId = truncate(256)(id ? id.trim() : `btn_${index}_${title}`);
+    return { id: cleanId, title };
+  }).filter(({ title }) => Boolean(title));
+  if (empty(buttons)) return null;
+  const remainingText = text
+    .replace(buttonTagRegex, "")
+    .replace(/<\/?(?:buttons|quick_replies)[^>]*>/gi, "")
+    .trim();
+  return { buttons, remainingText };
+};
+
+export const formatButtonsFallback = (
+  text: string,
+  buttons: InteractiveButton[],
+): string => {
+  const buttonList = buttons.map(({ title }) => `[${title}]`).join("  ");
+  return text ? `${text}\n\n${buttonList}` : buttonList;
+};
+
+export const sendWhatsappInteractiveButtons =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  (
+    text: string,
+    buttons: (string | InteractiveButton)[],
+  ): Promise<string> => {
+    const normalizedButtons: InteractiveButton[] = buttons.map(
+      (b, idx) => {
+        if (typeof b === "string") {
+          const title = truncate(20)(b.trim());
+          return { id: `btn_${idx}_${title}`, title };
+        }
+        const title = truncate(20)(b.title.trim());
+        const id = truncate(256)((b.id || `btn_${idx}_${title}`).trim());
+        return { id, title };
+      },
+    );
+
+    if (empty(normalizedButtons)) {
+      return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
+    }
+
+    if (normalizedButtons.length > 3) {
+      return sendWhatsappMessage(accessToken, fromNumberId)(to)(
+        formatButtonsFallback(text, normalizedButtons),
+      );
+    }
+
+    const bodyText = convertToWhatsAppFormat(text.trim() || " ");
+
+    return postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      type: "interactive",
+      messaging_product: "whatsapp",
+      to,
+      interactive: {
+        type: "button",
+        body: { text: bodyText },
+        action: {
+          buttons: normalizedButtons.map((btn) => ({
+            type: "reply",
+            reply: {
+              id: btn.id,
+              title: btn.title,
+            },
+          })),
+        },
+      },
+    }).then(
+      (response: Response) => response.json() as Promise<SentMessageResponse>,
+    ).then(({ messages: [{ id }] }: SentMessageResponse) => id);
   };
 
 type ImageDataPayload = {
@@ -401,6 +507,10 @@ const messageText = pipe(
       ? msg.text.body
       : msg.type === "button"
       ? msg.button.text
+      : msg.type === "interactive"
+      ? (msg.interactive.button_reply?.title ??
+        msg.interactive.list_reply?.title ??
+        "")
       : msg.type === "image"
       ? msg.image.caption ?? ""
       : msg.type === "video"
@@ -602,6 +712,9 @@ export const whatsappForBusinessInjectDepsAndRun =
     const sendVideoReply = sendWhatsappVideo(token, toNumberId(msg))(
       fromNumber(msg),
     );
+    const sendButtons = sendWhatsappInteractiveButtons(token, toNumberId(msg))(
+      fromNumber(msg),
+    );
     return pipe(
       injectLastEvent(() => event),
       injectMedium(() => "whatsapp"),
@@ -613,16 +726,35 @@ export const whatsappForBusinessInjectDepsAndRun =
         const extractedVideo = extractVideoTag(t);
         if (extractedVideo) {
           await sendVideoReply(extractedVideo.videoUrl);
-          return extractedVideo.remainingText
-            ? send(extractedVideo.remainingText)
-            : crypto.randomUUID();
+          if (!extractedVideo.remainingText) return crypto.randomUUID();
+          const buttonsInRemaining = extractButtonsTag(
+            extractedVideo.remainingText,
+          );
+          return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+            ? sendButtons(
+              buttonsInRemaining.remainingText,
+              buttonsInRemaining.buttons,
+            )
+            : send(extractedVideo.remainingText);
         }
         const extracted = extractImgTag(t);
         if (extracted) {
           await sendImageReply({ link: extracted.imageUrl });
-          return extracted.remainingText
-            ? send(extracted.remainingText)
-            : crypto.randomUUID();
+          if (!extracted.remainingText) return crypto.randomUUID();
+          const buttonsInRemaining = extractButtonsTag(extracted.remainingText);
+          return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+            ? sendButtons(
+              buttonsInRemaining.remainingText,
+              buttonsInRemaining.buttons,
+            )
+            : send(extracted.remainingText);
+        }
+        const extractedButtons = extractButtonsTag(t);
+        if (extractedButtons && nonempty(extractedButtons.buttons)) {
+          return sendButtons(
+            extractedButtons.remainingText,
+            extractedButtons.buttons,
+          );
         }
         return send(t);
       }),

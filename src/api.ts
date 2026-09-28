@@ -197,6 +197,8 @@ async (...xs: Parameters<F>) => {
   }
 };
 
+export type InteractiveButton = { id: string; title: string };
+
 export type MediaAttachment =
   | { kind: "inline"; mimeType: string; dataBase64: string; caption?: string }
   | { kind: "file"; mimeType: string; fileUri: string; caption?: string };
