@@ -7,6 +7,7 @@ import {
   getBestPhoneFromContactShared,
   markdownToTelegramHtml,
   sanitizeTelegramHtml,
+  sendTelegramButtons,
   sendTelegramMessage,
   splitTelegramText,
   telegramNormalizeEvent,
@@ -606,6 +607,43 @@ Deno.test("telegramNormalizeEvent adds descriptive note when document getFile fa
       event.text,
       'Please review\n\n[Attached document "document.pdf": file exceeds Telegram\'s 20MB bot limit]',
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("sendTelegramButtons posts keyboard reply_markup payload", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          result: { message_id: 99999 },
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendTelegramButtons("token");
+    const id = await send(12345, "Would you like updates?", [
+      { id: "yes", title: "Yes" },
+      { id: "no", title: "No" },
+    ]);
+    assertEquals(id, "99999");
+    assertEquals(calls.length, 1);
+    const body = JSON.parse(calls[0].init?.body as string);
+    assertEquals(body.chat_id, 12345);
+    assertEquals(body.text, "Would you like updates?");
+    assertEquals(body.reply_markup.keyboard, [
+      [{ text: "Yes" }, { text: "No" }],
+    ]);
+    assertEquals(body.reply_markup.one_time_keyboard, true);
+    assertEquals(body.reply_markup.resize_keyboard, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

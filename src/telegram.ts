@@ -8,7 +8,16 @@ import type {
 } from "@grammyjs/types";
 
 import type { Injector } from "@uri/inject";
-import { coerce, max, pipe, prop, retry, sleep, throttle } from "gamla";
+import {
+  coerce,
+  max,
+  nonempty,
+  pipe,
+  prop,
+  retry,
+  sleep,
+  throttle,
+} from "gamla";
 import { Readable } from "node:stream";
 import { Telegraf, type Telegram } from "telegraf";
 import {
@@ -26,11 +35,13 @@ import {
   injectSpinner,
   injectTyping,
   injectUserId,
+  type InteractiveButton,
   type MediaAttachment,
   type TaskHandler,
 } from "./api.ts";
 import type { Endpoint } from "./index.ts";
 import { verifyTelegramSecretToken } from "./webhookAuth.ts";
+import { extractButtonsTag } from "./whatsapp.ts";
 
 const createUrlReadStream = async (url: string): Promise<Readable> => {
   const response = await fetch(url);
@@ -250,6 +261,50 @@ async (chat_id: number, text: string) => {
     )(chat_id, chunk);
   }
   return lastMsgId;
+};
+export const sendTelegramButtons = (token: string) =>
+(
+  chatId: number,
+  text: string,
+  buttons: InteractiveButton[],
+): Promise<string> => {
+  const normalized = telegramMessageText(text);
+  const keyboard = [buttons.map((b) => ({ text: b.title }))];
+  return pipe(
+    retry(
+      2,
+      500,
+      (chat_id: number, text: string) =>
+        fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+          method: "POST",
+          headers: { "Content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id,
+            text: text || "Please select an option:",
+            disable_web_page_preview: true,
+            parse_mode: "HTML" as ParseMode,
+            reply_markup: {
+              keyboard,
+              one_time_keyboard: true,
+              resize_keyboard: true,
+            },
+          }),
+        }).then((r) => r.json()),
+    ),
+    (response: ApiResponse<Message>) => {
+      if (response.ok) return response.result.message_id.toString();
+      if (
+        response.error_code === 403 ||
+        response.description?.includes("PEER_ID_INVALID") ||
+        response.description?.includes("bot was kicked")
+      ) {
+        return "";
+      }
+      throw new Error(
+        `Telegram error: ${response.error_code} ${response.description}`,
+      );
+    },
+  )(chatId, normalized);
 };
 
 export const convertHtmlTablesToPre = (text: string): string => {
@@ -1002,24 +1057,48 @@ const injectDeps = (
       const extractedVideo = extractVideoTag(t);
       if (extractedVideo) {
         await sendFileTelegram(tgm, id)(extractedVideo.videoUrl);
-        return extractedVideo.remainingText
+        if (!extractedVideo.remainingText) return crypto.randomUUID();
+        const buttonsInRemaining = extractButtonsTag(
+          extractedVideo.remainingText,
+        );
+        return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+          ? sendTelegramButtons(telegramToken)(
+            id,
+            buttonsInRemaining.remainingText,
+            buttonsInRemaining.buttons,
+          )
           // @ts-ignore error in node but not in deno
-          ? sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
+          : sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
             id,
             extractedVideo.remainingText,
-          )
-          : crypto.randomUUID();
+          );
       }
       const extractedImg = extractImgTag(t);
       if (extractedImg) {
         await tgm.sendPhoto(id, extractedImg.imageUrl).catch(ignoreKick);
-        return extractedImg.remainingText
+        if (!extractedImg.remainingText) return crypto.randomUUID();
+        const buttonsInRemaining = extractButtonsTag(
+          extractedImg.remainingText,
+        );
+        return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+          ? sendTelegramButtons(telegramToken)(
+            id,
+            buttonsInRemaining.remainingText,
+            buttonsInRemaining.buttons,
+          )
           // @ts-ignore error in node but not in deno
-          ? sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
+          : sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
             id,
             extractedImg.remainingText,
-          )
-          : crypto.randomUUID();
+          );
+      }
+      const extractedButtons = extractButtonsTag(t);
+      if (extractedButtons && nonempty(extractedButtons.buttons)) {
+        return sendTelegramButtons(telegramToken)(
+          id,
+          extractedButtons.remainingText,
+          extractedButtons.buttons,
+        );
       }
       // @ts-ignore error in node but not in deno
       return sendTelegramMessageIfNonempty(sendTelegramMessage(telegramToken))(
