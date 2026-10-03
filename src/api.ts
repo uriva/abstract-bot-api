@@ -229,7 +229,21 @@ type ReactionEvent = {
   onMessageId: string;
 };
 
-export type ConversationEvent = MessageEvent | EditEvent | ReactionEvent;
+// Something happened outside the conversation that the agent should treat as
+// fact rather than as something anyone said. Carries no author on purpose:
+// injected context must not carry operator identity.
+export type ExternalEvent = {
+  kind: "external";
+  id: string;
+  time: number;
+  text: string;
+};
+
+export type ConversationEvent =
+  | MessageEvent
+  | EditEvent
+  | ReactionEvent
+  | ExternalEvent;
 
 // deno-lint-ignore no-explicit-any
 export type TaskHandler = () => any;
