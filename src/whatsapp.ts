@@ -168,22 +168,58 @@ const postGraphMessage = conditionalRetry(
   throw new Error(body);
 });
 
+export const maxWhatsappTextLength = 4096;
+export const maxWhatsappInteractiveTextLength = 1024;
+export const maxWhatsappCaptionLength = 1024;
+
+export const splitWhatsappText = (
+  text: string,
+  limit = maxWhatsappTextLength,
+): string[] => {
+  if (text.length <= limit) return [text];
+  const parts: string[] = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf("\n\n", limit);
+    if (cut <= 0) cut = rest.lastIndexOf("\n", limit);
+    if (cut <= 0) cut = rest.lastIndexOf(" ", limit);
+    if (cut <= 0) cut = limit;
+    parts.push(rest.slice(0, cut));
+    rest = rest.slice(cut).trimStart();
+  }
+  if (rest) parts.push(rest);
+  return parts;
+};
+
+const postGraphTextMessage = async (
+  accessToken: string,
+  fromNumberId: string,
+  to: string,
+  body: string,
+): Promise<string> => {
+  const response = await postGraphMessage(accessToken, fromNumberId, {
+    recipient_type: "individual",
+    type: "text",
+    messaging_product: "whatsapp",
+    to,
+    text: { preview_url: false, body },
+  });
+  const { messages }: SentMessageResponse = await response.json();
+  return messages[0].id;
+};
+
 export const sendWhatsappMessage =
   (accessToken: string, fromNumberId: string) =>
-  (to: string): (msg: string) => Promise<string> =>
-    pipe(
-      convertToWhatsAppFormat,
-      (body: string) =>
-        postGraphMessage(accessToken, fromNumberId, {
-          recipient_type: "individual",
-          type: "text",
-          messaging_product: "whatsapp",
-          to,
-          text: { preview_url: false, body },
-        }),
-      (response: Response) => response.json() as Promise<SentMessageResponse>,
-      ({ messages: [{ id }] }: SentMessageResponse) => id,
-    );
+  (to: string) =>
+  async (msg: string): Promise<string> => {
+    const formatted = convertToWhatsAppFormat(msg);
+    const chunks = splitWhatsappText(formatted, maxWhatsappTextLength);
+    let lastId = "";
+    for (const chunk of chunks) {
+      lastId = await postGraphTextMessage(accessToken, fromNumberId, to, chunk);
+    }
+    return lastId;
+  };
 
 const isStaleMessageIdError = (text: string): boolean =>
   text.includes('"code":100') && text.includes("does not exist");
@@ -193,12 +229,14 @@ export const sendWhatsappQuotedReply =
   (to: string) =>
   async (text: string, replyToMessageId: string): Promise<string> => {
     const body = convertToWhatsAppFormat(text);
+    const chunks = splitWhatsappText(body, maxWhatsappTextLength);
+    if (empty(chunks)) return "";
     const response = await postGraphMessage(accessToken, fromNumberId, {
       recipient_type: "individual",
       type: "text",
       messaging_product: "whatsapp",
       to,
-      text: { preview_url: false, body },
+      text: { preview_url: false, body: chunks[0] },
       context: { message_id: replyToMessageId },
     }).catch((e: unknown) => {
       if (e instanceof Error && isStaleMessageIdError(e.message)) return e;
@@ -208,7 +246,11 @@ export const sendWhatsappQuotedReply =
       return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
     }
     const { messages }: SentMessageResponse = await response.json();
-    return messages[0].id;
+    let lastId = messages[0].id;
+    for (const chunk of chunks.slice(1)) {
+      lastId = await postGraphTextMessage(accessToken, fromNumberId, to, chunk);
+    }
+    return lastId;
   };
 
 const buttonTagRegex =
@@ -246,7 +288,7 @@ export const formatButtonsFallback = (
 export const sendWhatsappInteractiveButtons =
   (accessToken: string, fromNumberId: string) =>
   (to: string) =>
-  (
+  async (
     text: string,
     buttons: (string | InteractiveButton)[],
   ): Promise<string> => {
@@ -273,15 +315,23 @@ export const sendWhatsappInteractiveButtons =
     }
 
     const bodyText = convertToWhatsAppFormat(text.trim() || " ");
+    const chunks = splitWhatsappText(
+      bodyText,
+      maxWhatsappInteractiveTextLength,
+    );
+    for (const chunk of chunks.slice(0, -1)) {
+      await postGraphTextMessage(accessToken, fromNumberId, to, chunk);
+    }
+    const finalChunk = (chunks[chunks.length - 1] ?? "").trim() || " ";
 
-    return postGraphMessage(accessToken, fromNumberId, {
+    const response = await postGraphMessage(accessToken, fromNumberId, {
       recipient_type: "individual",
       type: "interactive",
       messaging_product: "whatsapp",
       to,
       interactive: {
         type: "button",
-        body: { text: bodyText },
+        body: { text: finalChunk },
         action: {
           buttons: normalizedButtons.map((btn) => ({
             type: "reply",
@@ -292,9 +342,9 @@ export const sendWhatsappInteractiveButtons =
           })),
         },
       },
-    }).then(
-      (response: Response) => response.json() as Promise<SentMessageResponse>,
-    ).then(({ messages: [{ id }] }: SentMessageResponse) => id);
+    });
+    const { messages }: SentMessageResponse = await response.json();
+    return messages[0].id;
   };
 
 type ImageDataPayload = {
@@ -386,6 +436,22 @@ export const sendWhatsappImage =
       throw new Error("sendWhatsappImage requires an id, link, or data");
     }
 
+    const formattedCaption = caption
+      ? convertToWhatsAppFormat(caption)
+      : undefined;
+    let initialCaption = formattedCaption;
+    let extraChunks: string[] = [];
+    if (
+      formattedCaption && formattedCaption.length > maxWhatsappCaptionLength
+    ) {
+      const chunks = splitWhatsappText(
+        formattedCaption,
+        maxWhatsappCaptionLength,
+      );
+      initialCaption = chunks[0];
+      extraChunks = chunks.slice(1);
+    }
+
     const response = await postGraphMessage(accessToken, fromNumberId, {
       recipient_type: "individual",
       messaging_product: "whatsapp",
@@ -393,12 +459,16 @@ export const sendWhatsappImage =
       type: "image",
       image: stripUndefined({
         ...imageDescriptor,
-        caption: caption ? convertToWhatsAppFormat(caption) : undefined,
+        caption: initialCaption,
       }),
     });
 
     const { messages } = (await response.json()) as SentMessageResponse;
-    return messages[0].id;
+    let lastId = messages[0].id;
+    for (const chunk of extraChunks) {
+      lastId = await postGraphTextMessage(accessToken, fromNumberId, to, chunk);
+    }
+    return lastId;
   };
 
 export const sendWhatsappVideo =

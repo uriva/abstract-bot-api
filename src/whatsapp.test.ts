@@ -593,3 +593,147 @@ Deno.test("whatsappForBusinessInjectDepsAndRun sends buttons and handles incomin
     globalThis.fetch = originalFetch;
   }
 });
+
+Deno.test("sendWhatsappInteractiveButtons chunks text exceeding 1024 limit across text and interactive messages", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: `msg-${calls.length}` }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappInteractiveButtons("token", "from-id")("111");
+    // 1470 characters, matching the length observed in the Agent FOMO incident
+    const longText = "A".repeat(800) + "\n\n" + "B".repeat(670);
+    const id = await send(longText, ["Choice 1", "Choice 2"]);
+    assertEquals(id, "msg-2");
+    assertEquals(calls.length, 2);
+
+    const firstMsg = JSON.parse(calls[0].init?.body as string);
+    assertEquals(firstMsg.type, "text");
+    assertEquals(firstMsg.text.body.length <= 1024, true);
+    assertEquals(firstMsg.text.body, "A".repeat(800));
+
+    const secondMsg = JSON.parse(calls[1].init?.body as string);
+    assertEquals(secondMsg.type, "interactive");
+    assertEquals(secondMsg.interactive.type, "button");
+    assertEquals(secondMsg.interactive.body.text.length <= 1024, true);
+    assertEquals(secondMsg.interactive.body.text, "B".repeat(670));
+    assertEquals(secondMsg.interactive.action.buttons.length, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("sendWhatsappMessage chunks text exceeding 4096 limit across multiple text messages", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: `msg-${calls.length}` }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappMessage("token", "from-id")("111");
+    const longText = "Paragraph 1: " + "X".repeat(3000) + "\n\nParagraph 2: " +
+      "Y".repeat(2000);
+    const id = await send(longText);
+    assertEquals(id, "msg-2");
+    assertEquals(calls.length, 2);
+
+    for (const call of calls) {
+      const parsed = JSON.parse(call.init?.body as string);
+      assertEquals(parsed.type, "text");
+      assertEquals(parsed.text.body.length <= 4096, true);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("whatsappForBusinessInjectDepsAndRun delivers reply longer than 1024 cap with buttons across messages", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: `outbound-${calls.length}` }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  const incomingMsg: WhatsappMessage = {
+    object: "whatsapp_business_account",
+    entry: [{
+      id: "entry-id",
+      changes: [{
+        field: "messages",
+        value: {
+          messaging_product: "whatsapp",
+          metadata: {
+            phone_number_id: "from-number-id",
+            display_phone_number: "5555",
+          },
+          contacts: [{ profile: { name: "Sender" }, wa_id: "111" }],
+          messages: [{
+            from: "111",
+            id: "user-wamid",
+            timestamp: "0",
+            type: "text",
+            text: { body: "Tell me more" },
+          }],
+        },
+      }],
+    }],
+  };
+
+  const handler: TaskHandler = async () => {
+    // 1470 characters with button tags
+    const longReply = "Section 1: " + "A".repeat(800) + "\n\nSection 2: " +
+      "B".repeat(600) + '\n<button id="opt_yes">Yes</button>';
+    await reply(longReply);
+  };
+
+  try {
+    await whatsappForBusinessInjectDepsAndRun("token", handler)(incomingMsg);
+    assertEquals(calls.length, 2);
+
+    const call1 = JSON.parse(calls[0].init?.body as string);
+    assertEquals(call1.type, "text");
+    assertEquals(call1.text.body.length <= 1024, true);
+
+    const call2 = JSON.parse(calls[1].init?.body as string);
+    assertEquals(call2.type, "interactive");
+    assertEquals(call2.interactive.body.text.length <= 1024, true);
+    assertEquals(call2.interactive.action.buttons, [
+      { type: "reply", reply: { id: "opt_yes", title: "Yes" } },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
