@@ -314,7 +314,10 @@ export const sendWhatsappInteractiveButtons =
       );
     }
 
-    const bodyText = convertToWhatsAppFormat(text.trim() || " ");
+    const defaultInteractiveBodyText = "Please select an option:";
+    const bodyText = convertToWhatsAppFormat(
+      text.trim() || defaultInteractiveBodyText,
+    );
     const chunks = splitWhatsappText(
       bodyText,
       maxWhatsappInteractiveTextLength,
@@ -322,7 +325,9 @@ export const sendWhatsappInteractiveButtons =
     for (const chunk of chunks.slice(0, -1)) {
       await postGraphTextMessage(accessToken, fromNumberId, to, chunk);
     }
-    const finalChunk = (chunks[chunks.length - 1] ?? "").trim() || " ";
+    const finalChunk = (
+      (chunks[chunks.length - 1] ?? "").trim() || defaultInteractiveBodyText
+    ).slice(0, maxWhatsappInteractiveTextLength);
 
     const response = await postGraphMessage(accessToken, fromNumberId, {
       recipient_type: "individual",

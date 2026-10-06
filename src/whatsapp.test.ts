@@ -737,3 +737,33 @@ Deno.test("whatsappForBusinessInjectDepsAndRun delivers reply longer than 1024 c
     globalThis.fetch = originalFetch;
   }
 });
+
+Deno.test("sendWhatsappInteractiveButtons uses non-empty text fallback when input text is empty or whitespace", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { url: string; body: Record<string, unknown> }[] = [];
+  globalThis.fetch = (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({
+      url: url.toString(),
+      body: JSON.parse(init?.body as string) as Record<string, unknown>,
+    });
+    return Promise.resolve(
+      new Response(JSON.stringify({ messages: [{ id: "btn-msg-id" }] }), {
+        status: 200,
+      }),
+    );
+  };
+
+  try {
+    await sendWhatsappInteractiveButtons("token", "123")("to")("   ", [
+      { id: "1", title: "Opt 1" },
+    ]);
+    assertEquals(calls.length, 1);
+    assertEquals(calls[0].body.type, "interactive");
+    assertEquals(
+      calls[0].body.interactive.body.text,
+      "Please select an option:",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
