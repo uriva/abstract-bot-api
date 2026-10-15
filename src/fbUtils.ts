@@ -57,6 +57,30 @@ const markdownLinkToText = (
   url: string,
 ) => text === url ? url : `${text} - ${url}`;
 
+const rtlMark = "\u200F";
+const hebrewCharRegex = /[\u0590-\u05FF]/;
+const firstStrongCharRegex = /[\u200E\u200F\u061C]|\p{L}/u;
+const latinLetterRegex = /^\p{Script=Latin}$/u;
+const bareUrlOrMediaTagRegex =
+  /^\s*(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/\S*$|<(?:img|video|audio|button)\b)/i;
+
+export const ensureRtlLine = (line: string): string => {
+  if (!line || bareUrlOrMediaTagRegex.test(line)) return line;
+  const visible = line.replace(/<[^>]+>/g, "");
+  const match = firstStrongCharRegex.exec(visible);
+  return match && latinLetterRegex.test(match[0]) ? `${rtlMark}${line}` : line;
+};
+
+export const ensureHebrewRtlLines = (text: string): string =>
+  !hebrewCharRegex.test(text) ? text : text
+    .split(/(```[\s\S]*?```)/g)
+    .map((segment, index) =>
+      index % 2 === 1
+        ? segment
+        : segment.split("\n").map(ensureRtlLine).join("\n")
+    )
+    .join("");
+
 const convertMarkdownToFacebookFormat = (message: string): string =>
   message
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, markdownLinkToText)
@@ -64,91 +88,94 @@ const convertMarkdownToFacebookFormat = (message: string): string =>
     .replace(/\*\*([^*]+)\*\*/g, (_, c) => wrapWithDelimiter("*")(c));
 
 export const convertHtmlToFacebookFormat = (message: string): string =>
-  convertMarkdownToFacebookFormat(
-    decodeHtmlEntities(
-      message
-        .replace(/<br\s*\/?>(?=)/gi, "\n")
-        .replace(/<code><pre>(.*?)<\/pre><\/code>/gis, "```$1```")
-        .replace(/<pre><code>(.*?)<\/code><\/pre>/gis, "```$1```")
-        .replace(/<code[^>]*>(.*?)<\/code>/gis, (_, content) => {
-          if (content.includes("\n")) {
-            return `\`\`\`${content}\`\`\``;
-          }
-          return `\`${content}\``;
-        })
-        .replace(/<pre[^>]*>(.*?)<\/pre>/gis, "```$1```")
-        .replace(
-          /<\/(div|p|code|pre)>/gi,
-          (tag) => tag.includes("code") || tag.includes("pre") ? "" : "\n",
-        )
-        .replace(/<(div|p)[^>]*>/gi, "")
-        .replace(
-          /<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis,
-          (_, c) => wrapWithDelimiter("*")(c),
-        )
-        .replace(
-          /<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis,
-          (_, c) => wrapWithDelimiter("_")(c),
-        )
-        .replace(
-          /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis,
-          (_, c) => wrapWithDelimiter("*")(c),
-        )
-        .replace(
-          /<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis,
-          (_, c) => wrapWithDelimiter("_")(c),
-        )
-        .replace(
-          /<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis,
-          (_, c) => wrapWithDelimiter("~")(c),
-        )
-        .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
-        .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
-          const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
-          return items.map((item) =>
-            `* ${item.replace(/<\/?li>/gi, "").trim()}`
+  ensureHebrewRtlLines(
+    convertMarkdownToFacebookFormat(
+      decodeHtmlEntities(
+        message
+          .replace(/<br\s*\/?>(?=)/gi, "\n")
+          .replace(/<code><pre>(.*?)<\/pre><\/code>/gis, "```$1```")
+          .replace(/<pre><code>(.*?)<\/code><\/pre>/gis, "```$1```")
+          .replace(/<code[^>]*>(.*?)<\/code>/gis, (_, content) => {
+            if (content.includes("\n")) {
+              return `\`\`\`${content}\`\`\``;
+            }
+            return `\`${content}\``;
+          })
+          .replace(/<pre[^>]*>(.*?)<\/pre>/gis, "```$1```")
+          .replace(
+            /<\/(div|p|code|pre)>/gi,
+            (tag) => tag.includes("code") || tag.includes("pre") ? "" : "\n",
           )
-            .join(
-              "\n",
-            );
-        })
-        .replace(/<ol>([\s\S]*?)<\/ol>/gi, (_m, content: string) => {
-          const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
-          return items.map((item, index) =>
-            `${index + 1}. ${item.replace(/<\/?li>/gi, "").trim()}`
-          ).join("\n");
-        })
-        // Handle mailto anchors: show just the email if text equals it, otherwise "text - email"
-        .replace(
-          /<a\s[^>]*href=[\"'“”](mailto:([^\"'“”\?]+)(?:\?[^\"'“”]*)?)[\"'“”][^>]*>(.*?)<\/a>/gi,
-          (_m, _fullMailto: string, email: string, text: string) =>
-            text.toLowerCase() === email.toLowerCase()
-              ? email
-              : `${text} - ${email}`,
-        )
-        // Support both straight and smart quotes around href attribute
-        // Capture full URL in group 1 and the host/path without protocol in group 2
-        .replace(
-          /<a\s[^>]*href=[\"'“”]((https?:\/\/)([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
-          (
-            _m,
-            fullUrl: string,
-            _protocol: string,
-            linkNoProtocol: string,
-            text: string,
-          ) => {
-            const http = `http://${linkNoProtocol}`;
-            const https = `https://${linkNoProtocol}`;
-            return (text === linkNoProtocol || text === http ||
-                text === https || text === fullUrl)
-              ? fullUrl
-              : `${text} - ${fullUrl}`;
-          },
-        )
-        .replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (_, content) => {
-          return "\n> " + String(content).trim().replace(/\n/g, "\n> ") + "\n";
-        })
-        .replace(/<[^>]+>/g, "")
-        .trim(),
-    ),
-  ).replace(/(https?:\/\/[^\s)\]\}]+)([)\]\}]+)/g, "$1 $2");
+          .replace(/<(div|p)[^>]*>/gi, "")
+          .replace(
+            /<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis,
+            (_, c) => wrapWithDelimiter("*")(c),
+          )
+          .replace(
+            /<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis,
+            (_, c) => wrapWithDelimiter("_")(c),
+          )
+          .replace(
+            /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis,
+            (_, c) => wrapWithDelimiter("*")(c),
+          )
+          .replace(
+            /<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis,
+            (_, c) => wrapWithDelimiter("_")(c),
+          )
+          .replace(
+            /<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis,
+            (_, c) => wrapWithDelimiter("~")(c),
+          )
+          .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
+          .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
+            const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
+            return items.map((item) =>
+              `* ${item.replace(/<\/?li>/gi, "").trim()}`
+            )
+              .join(
+                "\n",
+              );
+          })
+          .replace(/<ol>([\s\S]*?)<\/ol>/gi, (_m, content: string) => {
+            const items = content.match(/<li>([\s\S]*?)<\/li>/gi) || [];
+            return items.map((item, index) =>
+              `${index + 1}. ${item.replace(/<\/?li>/gi, "").trim()}`
+            ).join("\n");
+          })
+          // Handle mailto anchors: show just the email if text equals it, otherwise "text - email"
+          .replace(
+            /<a\s[^>]*href=[\"'“”](mailto:([^\"'“”\?]+)(?:\?[^\"'“”]*)?)[\"'“”][^>]*>(.*?)<\/a>/gi,
+            (_m, _fullMailto: string, email: string, text: string) =>
+              text.toLowerCase() === email.toLowerCase()
+                ? email
+                : `${text} - ${email}`,
+          )
+          // Support both straight and smart quotes around href attribute
+          // Capture full URL in group 1 and the host/path without protocol in group 2
+          .replace(
+            /<a\s[^>]*href=[\"'“”]((https?:\/\/)([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
+            (
+              _m,
+              fullUrl: string,
+              _protocol: string,
+              linkNoProtocol: string,
+              text: string,
+            ) => {
+              const http = `http://${linkNoProtocol}`;
+              const https = `https://${linkNoProtocol}`;
+              return (text === linkNoProtocol || text === http ||
+                  text === https || text === fullUrl)
+                ? fullUrl
+                : `${text} - ${fullUrl}`;
+            },
+          )
+          .replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (_, content) => {
+            return "\n> " + String(content).trim().replace(/\n/g, "\n> ") +
+              "\n";
+          })
+          .replace(/<[^>]+>/g, "")
+          .trim(),
+      ),
+    ).replace(/(https?:\/\/[^\s)\]\}]+)([)\]\}]+)/g, "$1 $2"),
+  );

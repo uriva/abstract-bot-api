@@ -740,11 +740,14 @@ Deno.test("whatsappForBusinessInjectDepsAndRun delivers reply longer than 1024 c
 
 Deno.test("sendWhatsappInteractiveButtons uses non-empty text fallback when input text is empty or whitespace", async () => {
   const originalFetch = globalThis.fetch;
-  const calls: { url: string; body: Record<string, unknown> }[] = [];
+  const calls: {
+    url: string;
+    body: { type: string; interactive: { body: { text: string } } };
+  }[] = [];
   globalThis.fetch = (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
       url: url.toString(),
-      body: JSON.parse(init?.body as string) as Record<string, unknown>,
+      body: JSON.parse(init?.body as string),
     });
     return Promise.resolve(
       new Response(JSON.stringify({ messages: [{ id: "btn-msg-id" }] }), {

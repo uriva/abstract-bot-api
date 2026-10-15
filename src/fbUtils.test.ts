@@ -241,6 +241,14 @@ const testCases = [
     input: "<i>> Quoted line 1\n> Quoted line 2\n* Item 1\n1. First step</i>",
     output: "> _Quoted line 1_\n> _Quoted line 2_\n* _Item 1_\n1. _First step_",
   },
+  {
+    testName:
+      "prepends U+200F to lines whose first letter is Latin in Hebrew messages",
+    input:
+      "שלום חבר 🎧\n1️⃣ *Studio A בתל אביב (ד׳, 14.10)*\n2️⃣ *ערב ג׳אז במועדון המקומי (ד׳, 14.10)*\n3️⃣ *Live Quartet במרכז המוזיקה*\n\nNight Session: ערב מוזיקה מיוחד",
+    output:
+      "שלום חבר 🎧\n\u200F1️⃣ *Studio A בתל אביב (ד׳, 14.10)*\n2️⃣ *ערב ג׳אז במועדון המקומי (ד׳, 14.10)*\n\u200F3️⃣ *Live Quartet במרכז המוזיקה*\n\n\u200FNight Session: ערב מוזיקה מיוחד",
+  },
 ];
 
 each(({ testName, input, output }) =>

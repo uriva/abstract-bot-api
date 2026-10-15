@@ -37,9 +37,12 @@ import {
 } from "./api.ts";
 import {
   convertHtmlToFacebookFormat,
+  ensureHebrewRtlLines,
+  ensureRtlLine,
   makeHeaders,
   stripUndefined,
 } from "./fbUtils.ts";
+export { ensureHebrewRtlLines, ensureRtlLine };
 import type {
   ConversationEvent,
   ImageReplyPayload,
