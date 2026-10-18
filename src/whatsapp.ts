@@ -20,6 +20,7 @@ import {
   truncate,
 } from "gamla";
 import {
+  type ContactPayload,
   injectBotPhone,
   injectLastEvent,
   injectMedium,
@@ -29,6 +30,7 @@ import {
   injectReferenceId,
   injectReply,
   injectReplyImage,
+  injectSendContact,
   injectSpinner,
   injectTyping,
   injectUserId,
@@ -287,6 +289,105 @@ export const formatButtonsFallback = (
   const buttonList = buttons.map(({ title }) => `[${title}]`).join("  ");
   return text ? `${text}\n\n${buttonList}` : buttonList;
 };
+
+const contactTagRegex = /<contact\b([^>]*)(?:\/>|>([\s\S]*?)<\/contact>)/gi;
+
+const vcardBlockRegex =
+  /(?:<(?:blockquote|pre|code)[^>]*>\s*)*BEGIN:VCARD[\s\S]*?END:VCARD(?:\s*<\/(?:blockquote|pre|code)>)*/gi;
+
+const parseContactTagMatch = (
+  attrs: string,
+  inner: string | undefined,
+): ContactPayload | null => {
+  const nameMatch = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+  const phoneMatch = /\bphone\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+  const rawName = (nameMatch?.[1] ?? nameMatch?.[2] ?? "").trim();
+  const rawPhone = (phoneMatch?.[1] ?? phoneMatch?.[2] ?? "").trim();
+  const innerTrimmed = (inner ?? "").replace(/<[^>]+>/g, "").trim();
+  const name = rawName || (rawPhone ? innerTrimmed : "");
+  const phone = rawPhone || (rawName ? innerTrimmed : "");
+  return name && phone ? { name, phone } : null;
+};
+
+const parseVcardBlock = (block: string): ContactPayload | null => {
+  const clean = block.replace(/<[^>]+>/g, "");
+  const fnMatch = /(?:^|\n)(?:FN|X-WA-BIZ-NAME)[;:]([^\r\n]+)/i.exec(clean);
+  const telMatch = /(?:^|\n)(?:item\d+\.)?TEL[^:\r\n]*:([^\r\n]+)/i.exec(clean);
+  const waidMatch = /\bwaid=(\d+)/i.exec(clean);
+  const name = (fnMatch?.[1] ?? "").trim();
+  const phone = (telMatch?.[1] ?? waidMatch?.[1] ?? "").trim();
+  return name && phone ? { name, phone } : null;
+};
+
+export const extractContactsTag = (
+  text: string,
+): { contacts: ContactPayload[]; remainingText: string } | null => {
+  const lower = text.toLowerCase();
+  if (!lower.includes("<contact") && !lower.includes("begin:vcard")) {
+    return null;
+  }
+  const tagContacts = [...text.matchAll(contactTagRegex)]
+    .map((m) => parseContactTagMatch(m[1] ?? "", m[2]))
+    .filter((c): c is ContactPayload => c !== null);
+  const vcardContacts = [...text.matchAll(vcardBlockRegex)]
+    .map((m) => parseVcardBlock(m[0]))
+    .filter((c): c is ContactPayload => c !== null);
+  const contacts = [...tagContacts, ...vcardContacts];
+  if (empty(contacts)) return null;
+  const remainingText = text
+    .replace(contactTagRegex, "")
+    .replace(vcardBlockRegex, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { contacts, remainingText };
+};
+
+const normalizeContactDigits = (phone: string): string => {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length === 10 && digits.startsWith("05")
+    ? `972${digits.slice(1)}`
+    : digits;
+};
+
+export const sendWhatsappContact =
+  (accessToken: string, fromNumberId: string) =>
+  (to: string) =>
+  async ({ name, phone }: ContactPayload): Promise<string> => {
+    const trimmedName = name.trim();
+    const spaceIdx = trimmedName.indexOf(" ");
+    const firstName = spaceIdx > 0
+      ? trimmedName.slice(0, spaceIdx)
+      : trimmedName;
+    const lastName = spaceIdx > 0
+      ? trimmedName.slice(spaceIdx + 1).trim()
+      : undefined;
+    const normalizedDigits = normalizeContactDigits(phone);
+    const formattedPhone = `+${normalizedDigits}`;
+    const response = await postGraphMessage(accessToken, fromNumberId, {
+      recipient_type: "individual",
+      messaging_product: "whatsapp",
+      to,
+      type: "contacts",
+      contacts: [
+        {
+          name: stripUndefined({
+            formatted_name: trimmedName,
+            first_name: firstName,
+            last_name: lastName || undefined,
+          }),
+          phones: [
+            {
+              phone: formattedPhone,
+              ...(normalizedDigits ? { wa_id: normalizedDigits } : {}),
+              type: "CELL",
+            },
+          ],
+        },
+      ],
+    });
+    const { messages }: SentMessageResponse = await response.json();
+    return messages[0].id;
+  };
 
 export const sendWhatsappInteractiveButtons =
   (accessToken: string, fromNumberId: string) =>
@@ -793,6 +894,45 @@ export const whatsappForBusinessInjectDepsAndRun =
     const sendButtons = sendWhatsappInteractiveButtons(token, toNumberId(msg))(
       fromNumber(msg),
     );
+    const sendContactReply = sendWhatsappContact(token, toNumberId(msg))(
+      fromNumber(msg),
+    );
+    const sendBodyReply = async (t: string): Promise<string> => {
+      const extractedVideo = extractVideoTag(t);
+      if (extractedVideo) {
+        await sendVideoReply(extractedVideo.videoUrl);
+        if (!extractedVideo.remainingText) return crypto.randomUUID();
+        const buttonsInRemaining = extractButtonsTag(
+          extractedVideo.remainingText,
+        );
+        return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+          ? sendButtons(
+            buttonsInRemaining.remainingText,
+            buttonsInRemaining.buttons,
+          )
+          : send(extractedVideo.remainingText);
+      }
+      const extracted = extractImgTag(t);
+      if (extracted) {
+        await sendImageReply({ link: extracted.imageUrl });
+        if (!extracted.remainingText) return crypto.randomUUID();
+        const buttonsInRemaining = extractButtonsTag(extracted.remainingText);
+        return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
+          ? sendButtons(
+            buttonsInRemaining.remainingText,
+            buttonsInRemaining.buttons,
+          )
+          : send(extracted.remainingText);
+      }
+      const extractedButtons = extractButtonsTag(t);
+      if (extractedButtons && nonempty(extractedButtons.buttons)) {
+        return sendButtons(
+          extractedButtons.remainingText,
+          extractedButtons.buttons,
+        );
+      }
+      return send(t);
+    };
     return pipe(
       injectLastEvent(() => event),
       injectMedium(() => "whatsapp"),
@@ -801,42 +941,18 @@ export const whatsappForBusinessInjectDepsAndRun =
       injectUserId(() => coerce(fromNumber(msg))),
       injectSpinner(pipe(send, (_) => () => Promise.resolve())),
       injectReply(async (t: string) => {
-        const extractedVideo = extractVideoTag(t);
-        if (extractedVideo) {
-          await sendVideoReply(extractedVideo.videoUrl);
-          if (!extractedVideo.remainingText) return crypto.randomUUID();
-          const buttonsInRemaining = extractButtonsTag(
-            extractedVideo.remainingText,
-          );
-          return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
-            ? sendButtons(
-              buttonsInRemaining.remainingText,
-              buttonsInRemaining.buttons,
-            )
-            : send(extractedVideo.remainingText);
+        const extractedContacts = extractContactsTag(t);
+        if (!extractedContacts) return sendBodyReply(t);
+        let lastId = extractedContacts.remainingText
+          ? await sendBodyReply(extractedContacts.remainingText)
+          : "";
+        for (const contact of extractedContacts.contacts) {
+          lastId = await sendContactReply(contact);
         }
-        const extracted = extractImgTag(t);
-        if (extracted) {
-          await sendImageReply({ link: extracted.imageUrl });
-          if (!extracted.remainingText) return crypto.randomUUID();
-          const buttonsInRemaining = extractButtonsTag(extracted.remainingText);
-          return buttonsInRemaining && nonempty(buttonsInRemaining.buttons)
-            ? sendButtons(
-              buttonsInRemaining.remainingText,
-              buttonsInRemaining.buttons,
-            )
-            : send(extracted.remainingText);
-        }
-        const extractedButtons = extractButtonsTag(t);
-        if (extractedButtons && nonempty(extractedButtons.buttons)) {
-          return sendButtons(
-            extractedButtons.remainingText,
-            extractedButtons.buttons,
-          );
-        }
-        return send(t);
+        return lastId || crypto.randomUUID();
       }),
       injectReplyImage(sendImageReply),
+      injectSendContact(sendContactReply),
       injectTyping(() =>
         sendWhatsappTypingIndicator(token, toNumberId(msg))(
           messageId(msg),

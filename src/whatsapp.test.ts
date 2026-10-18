@@ -1,9 +1,17 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { decodeBase64 } from "@std/encoding";
-import { lastEvent, reply, replyImage, type TaskHandler } from "./index.ts";
+import {
+  lastEvent,
+  reply,
+  replyImage,
+  sendContact,
+  type TaskHandler,
+} from "./index.ts";
 import {
   extractButtonsTag,
+  extractContactsTag,
   formatButtonsFallback,
+  sendWhatsappContact,
   sendWhatsappImage,
   sendWhatsappInteractiveButtons,
   sendWhatsappMessage,
@@ -766,6 +774,129 @@ Deno.test("sendWhatsappInteractiveButtons uses non-empty text fallback when inpu
       calls[0].body.interactive.body.text,
       "Please select an option:",
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("extractContactsTag parses <contact> tags and vCard blocks", () => {
+  assertEquals(extractContactsTag("plain text"), null);
+
+  assertEquals(
+    extractContactsTag(
+      'Here is the contact:\n<contact name="Jane Doe" phone="+972 50-000-0000" />',
+    ),
+    {
+      contacts: [{ name: "Jane Doe", phone: "+972 50-000-0000" }],
+      remainingText: "Here is the contact:",
+    },
+  );
+
+  assertEquals(
+    extractContactsTag(
+      `BEGIN:VCARD\nVERSION:3.0\nFN:Visa Helper\nitem1.TEL;waid=972500000000:+972 50-000-0000\nEND:VCARD\nReach out anytime!`,
+    ),
+    {
+      contacts: [{ name: "Visa Helper", phone: "+972 50-000-0000" }],
+      remainingText: "Reach out anytime!",
+    },
+  );
+});
+
+Deno.test("sendWhatsappContact and whatsappForBusinessInjectDepsAndRun deliver native contacts payload", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { url: string; body: Record<string, unknown> }[] = [];
+  globalThis.fetch = (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({
+      url: url.toString(),
+      body: JSON.parse(init?.body as string),
+    });
+    return Promise.resolve(
+      okMessageResponse(`contact-msg-${calls.length}`),
+    );
+  };
+
+  const incomingMsg: WhatsappMessage = {
+    object: "whatsapp_business_account",
+    entry: [{
+      id: "entry-id",
+      changes: [{
+        field: "messages",
+        value: {
+          messaging_product: "whatsapp",
+          metadata: {
+            phone_number_id: "from-number-id",
+            display_phone_number: "5555",
+          },
+          contacts: [{ profile: { name: "Sender" }, wa_id: "111" }],
+          messages: [{
+            from: "111",
+            id: "user-wamid",
+            timestamp: "0",
+            type: "text",
+            text: { body: "Who handles visas?" },
+          }],
+        },
+      }],
+    }],
+  };
+
+  const handler: TaskHandler = async () => {
+    await reply(
+      'Reach out to our specialist:\n<contact name="Visa Helper" phone="+972 50-000-0000" />',
+    );
+    await sendContact({ name: "Support Desk", phone: "0501112222" });
+  };
+
+  try {
+    await whatsappForBusinessInjectDepsAndRun("token", handler)(incomingMsg);
+    assertEquals(calls.length, 3);
+    assertEquals(calls[0].body.type, "text");
+    assertEquals(calls[0].body.text, {
+      preview_url: false,
+      body: "Reach out to our specialist:",
+    });
+
+    assertEquals(calls[1].body.type, "contacts");
+    assertEquals(calls[1].body.contacts, [
+      {
+        name: {
+          formatted_name: "Visa Helper",
+          first_name: "Visa",
+          last_name: "Helper",
+        },
+        phones: [
+          {
+            phone: "+972500000000",
+            wa_id: "972500000000",
+            type: "CELL",
+          },
+        ],
+      },
+    ]);
+
+    assertEquals(calls[2].body.type, "contacts");
+    assertEquals(calls[2].body.contacts, [
+      {
+        name: {
+          formatted_name: "Support Desk",
+          first_name: "Support",
+          last_name: "Desk",
+        },
+        phones: [
+          {
+            phone: "+972501112222",
+            wa_id: "972501112222",
+            type: "CELL",
+          },
+        ],
+      },
+    ]);
+
+    const directId = await sendWhatsappContact("token", "from-number-id")(
+      "111",
+    )({ name: "SingleName", phone: "972500000000" });
+    assertEquals(directId, "contact-msg-4");
   } finally {
     globalThis.fetch = originalFetch;
   }

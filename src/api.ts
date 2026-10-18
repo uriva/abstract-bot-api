@@ -108,6 +108,17 @@ const sendFileInjection: Injection<(url: string) => Promise<void>> = context(
 export const injectSendFile = sendFileInjection.inject;
 export const sendFile = sendFileInjection.access;
 
+export type ContactPayload = { name: string; phone: string };
+
+const sendContactInjection: Injection<
+  (contact: ContactPayload) => Promise<string>
+> = context((contact: ContactPayload): Promise<string> =>
+  reply(`${contact.name} - ${contact.phone}`)
+);
+export const injectSendContact = sendContactInjection.inject;
+export const sendContact = sendContactInjection.access;
+export const getSendContact = sendContactInjection.getStore;
+
 const progressBarInjection: Injection<
   (text: string) => Promise<(percentage: number) => Promise<void>>
 > = context((text: string) =>

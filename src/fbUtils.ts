@@ -62,7 +62,7 @@ const hebrewCharRegex = /[\u0590-\u05FF]/;
 const firstStrongCharRegex = /[\u200E\u200F\u061C]|\p{L}/u;
 const latinLetterRegex = /^\p{Script=Latin}$/u;
 const bareUrlOrMediaTagRegex =
-  /^\s*(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/\S*$|<(?:img|video|audio|button)\b)/i;
+  /^\s*(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/\S*$|<(?:img|video|audio|button|contact)\b)/i;
 
 export const ensureRtlLine = (line: string): string => {
   if (!line || bareUrlOrMediaTagRegex.test(line)) return line;
@@ -174,6 +174,23 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
             return "\n> " + String(content).trim().replace(/\n/g, "\n> ") +
               "\n";
           })
+          .replace(
+            /<contact\b([^>]*)(?:\/>|>([\s\S]*?)<\/contact>)/gi,
+            (_m, attrs: string, inner: string = "") => {
+              const nameMatch = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(
+                attrs,
+              );
+              const phoneMatch = /\bphone\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(
+                attrs,
+              );
+              const name = (nameMatch?.[1] ?? nameMatch?.[2] ?? inner ?? "")
+                .trim();
+              const phone = (phoneMatch?.[1] ?? phoneMatch?.[2] ?? inner ?? "")
+                .trim();
+              if (name && phone && name !== phone) return `*${name}*: ${phone}`;
+              return name || phone;
+            },
+          )
           .replace(/<[^>]+>/g, "")
           .trim(),
       ),
