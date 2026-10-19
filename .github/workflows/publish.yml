@@ -15,24 +15,5 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Publish package and verify
-        run: |
-          VERSION=$(jq -r .version deno.json)
-          if curl -sI "https://jsr.io/@uri/abstract-bot-api/${VERSION}_meta.json?cb=$RANDOM" | grep -E "HTTP/.* 200" > /dev/null; then
-            echo "JSR version ${VERSION} is already published and resolvable!"
-            exit 0
-          fi
-          for attempt in 1 2 3 4 5; do
-            echo "Publish attempt ${attempt} for version ${VERSION}..."
-            timeout 180s deno publish --no-provenance || echo "Publish command completed or timed out"
-            for i in {1..18}; do
-              if curl -sI "https://jsr.io/@uri/abstract-bot-api/${VERSION}_meta.json?cb=$RANDOM" | grep -E "HTTP/.* 200" > /dev/null; then
-                echo "Success: JSR version ${VERSION} is resolvable!"
-                exit 0
-              fi
-              echo "Waiting for JSR CDN..."
-              sleep 5
-            done
-          done
-          echo "Error: JSR version ${VERSION} is not resolvable after 5 publish attempts."
-          exit 1
+      - name: Publish package
+        run: deno publish --no-provenance
