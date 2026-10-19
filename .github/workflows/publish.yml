@@ -24,7 +24,7 @@ jobs:
           fi
           for attempt in 1 2 3 4 5; do
             echo "Publish attempt ${attempt} for version ${VERSION}..."
-            timeout 180s deno publish || echo "Publish command completed or timed out"
+            timeout 180s deno publish --no-provenance || echo "Publish command completed or timed out"
             for i in {1..18}; do
               if curl -sI "https://jsr.io/@uri/abstract-bot-api/${VERSION}_meta.json?cb=$RANDOM" | grep -E "HTTP/.* 200" > /dev/null; then
                 echo "Success: JSR version ${VERSION} is resolvable!"
