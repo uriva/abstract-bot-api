@@ -207,7 +207,7 @@ const postGraphTextMessage = async (
     type: "text",
     messaging_product: "whatsapp",
     to,
-    text: { preview_url: false, body },
+    text: { preview_url: true, body },
   });
   const { messages }: SentMessageResponse = await response.json();
   return messages[0].id;
@@ -241,7 +241,7 @@ export const sendWhatsappQuotedReply =
       type: "text",
       messaging_product: "whatsapp",
       to,
-      text: { preview_url: false, body: chunks[0] },
+      text: { preview_url: true, body: chunks[0] },
       context: { message_id: replyToMessageId },
     }).catch((e: unknown) => {
       if (e instanceof Error && isStaleMessageIdError(e.message)) return e;

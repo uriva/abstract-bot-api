@@ -853,7 +853,7 @@ Deno.test("sendWhatsappContact and whatsappForBusinessInjectDepsAndRun deliver n
     assertEquals(calls.length, 3);
     assertEquals(calls[0].body.type, "text");
     assertEquals(calls[0].body.text, {
-      preview_url: false,
+      preview_url: true,
       body: "Reach out to our specialist:",
     });
 
