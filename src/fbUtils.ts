@@ -62,7 +62,7 @@ const hebrewCharRegex = /[\u0590-\u05FF]/;
 const firstStrongCharRegex = /[\u200E\u200F\u061C]|\p{L}/u;
 const latinLetterRegex = /^\p{Script=Latin}$/u;
 const bareUrlOrMediaTagRegex =
-  /^\s*(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/\S*$|<(?:img|video|audio|button|contact)\b)/i;
+  /^\s*(?:https?:\/\/|www\.|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?(?:\s|$)|<(?:img|video|audio|button|contact)\b)/i;
 
 export const ensureRtlLine = (line: string): string => {
   if (!line || bareUrlOrMediaTagRegex.test(line)) return line;
@@ -154,14 +154,15 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           // Support both straight and smart quotes around href attribute
           // Capture full URL in group 1 and the host/path without protocol in group 2
           .replace(
-            /<a\s[^>]*href=[\"'“”]((https?:\/\/)([^\"'“”]+))[\"'“”][^>]*>(.*?)<\/a>/gi,
+            /<a\s[^>]*href=[\"'“”]((https?:\/\/)?((?:www\.|(?:[a-z0-9-]+\.)+[a-z]{2,})[^\"'“”]*))[\"'“”][^>]*>(.*?)<\/a>/gi,
             (
               _m,
-              fullUrl: string,
-              _protocol: string,
+              rawHref: string,
+              protocol: string | undefined,
               linkNoProtocol: string,
               text: string,
             ) => {
+              const fullUrl = protocol ? rawHref : `https://${linkNoProtocol}`;
               const http = `http://${linkNoProtocol}`;
               const https = `https://${linkNoProtocol}`;
               return (text === linkNoProtocol || text === http ||

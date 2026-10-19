@@ -249,6 +249,14 @@ const testCases = [
     output:
       "שלום חבר 🎧\n\u200F1️⃣ *Studio A בתל אביב (ד׳, 14.10)*\n2️⃣ *ערב ג׳אז במועדון המקומי (ד׳, 14.10)*\n\u200F3️⃣ *Live Quartet במרכז המוזיקה*\n\n\u200FNight Session: ערב מוזיקה מיוחד",
   },
+  {
+    testName:
+      "does not prepend U+200F to bare or full URLs with trailing emoji in Hebrew messages and normalizes scheme-less anchor hrefs",
+    input:
+      'בטח! אתר מומלץ:\n<a href="onwardticket.com/vakantie">onwardticket.com/vakantie</a> 💘\nonwardticket.com/vakantie 💘\nhttp://onwardticket.com/vakantie 💘',
+    output:
+      "בטח! אתר מומלץ:\nhttps://onwardticket.com/vakantie 💘\nonwardticket.com/vakantie 💘\nhttp://onwardticket.com/vakantie 💘",
+  },
 ];
 
 each(({ testName, input, output }) =>
