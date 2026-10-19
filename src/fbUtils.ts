@@ -65,7 +65,10 @@ const bareUrlOrMediaTagRegex =
   /^\s*(?:https?:\/\/|www\.|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?(?:\s|$)|<(?:img|video|audio|button|contact)\b)/i;
 
 export const ensureRtlLine = (line: string): string => {
-  if (!line || bareUrlOrMediaTagRegex.test(line)) return line;
+  if (!line) return line;
+  const withoutLeadingRtl = line.replace(/^\u200F+/, "");
+  if (bareUrlOrMediaTagRegex.test(withoutLeadingRtl)) return withoutLeadingRtl;
+  if (line !== withoutLeadingRtl) return line;
   const visible = line.replace(/<[^>]+>/g, "");
   const match = firstStrongCharRegex.exec(visible);
   return match && latinLetterRegex.test(match[0]) ? `${rtlMark}${line}` : line;
