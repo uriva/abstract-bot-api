@@ -257,6 +257,13 @@ const testCases = [
     output:
       "בטח! אתר מומלץ:\nhttps://onwardticket.com/vakantie 💘\nonwardticket.com/vakantie 💘\nhttp://onwardticket.com/vakantie 💘",
   },
+  {
+    testName:
+      "wraps attached prefix and suffix word characters inside WhatsApp formatting delimiters so mid-word tags like כ<b>שכיר</b> render validly",
+    input:
+      "האם את/ה מוגדר/ת כ<b>שכיר/ה או עצמאי/ת</b>? והאם כ<b>שכיר</b> או ו<i>עצמאי</i>?",
+    output: "האם את/ה מוגדר/ת *כשכיר/ה או עצמאי/ת*? והאם *כשכיר* או _ועצמאי_?",
+  },
 ];
 
 each(({ testName, input, output }) =>

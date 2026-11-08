@@ -111,24 +111,28 @@ export const convertHtmlToFacebookFormat = (message: string): string =>
           )
           .replace(/<(div|p)[^>]*>/gi, "")
           .replace(
-            /<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>/gis,
-            (_, c) => wrapWithDelimiter("*")(c),
+            /([\p{L}\p{N}]*)<(?:b|strong)[^>]*>(.*?)<\/(?:b|strong)>([\p{L}\p{N}]*)/gisu,
+            (_, pre: string, c: string, post: string) =>
+              wrapWithDelimiter("*")(`${pre}${c}${post}`),
           )
           .replace(
-            /<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>/gis,
-            (_, c) => wrapWithDelimiter("_")(c),
+            /([\p{L}\p{N}]*)<(?:i|em)[^>]*>(.*?)<\/(?:i|em)>([\p{L}\p{N}]*)/gisu,
+            (_, pre: string, c: string, post: string) =>
+              wrapWithDelimiter("_")(`${pre}${c}${post}`),
           )
           .replace(
             /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis,
             (_, c) => wrapWithDelimiter("*")(c),
           )
           .replace(
-            /<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>/gis,
-            (_, c) => wrapWithDelimiter("_")(c),
+            /([\p{L}\p{N}]*)<(?:u|ins)[^>]*>(.*?)<\/(?:u|ins)>([\p{L}\p{N}]*)/gisu,
+            (_, pre: string, c: string, post: string) =>
+              wrapWithDelimiter("_")(`${pre}${c}${post}`),
           )
           .replace(
-            /<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>/gis,
-            (_, c) => wrapWithDelimiter("~")(c),
+            /([\p{L}\p{N}]*)<(?:s|strike|del)[^>]*>(.*?)<\/(?:s|strike|del)>([\p{L}\p{N}]*)/gisu,
+            (_, pre: string, c: string, post: string) =>
+              wrapWithDelimiter("~")(`${pre}${c}${post}`),
           )
           .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
           .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_m, content: string) => {
