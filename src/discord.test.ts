@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  convertHtmlToDiscordFormat,
   discordApiBaseUrl,
   discordInjectDepsAndRun,
   openDiscordDm,
@@ -16,6 +17,16 @@ import {
   type TaskHandler,
   userId,
 } from "./index.ts";
+
+Deno.test("convertHtmlToDiscordFormat converts HTML tags to Discord Markdown while preserving mentions", () => {
+  const converted = convertHtmlToDiscordFormat(
+    'Hey <@123456>! <b>Update</b><br><ul><li>Item <i>one</i></li><li><a href="https://prompt2bot.com">Docs</a></li></ul>',
+  );
+  assertEquals(
+    converted,
+    "Hey <@123456>! **Update**\n- Item *one*\n- [Docs](https://prompt2bot.com)",
+  );
+});
 
 Deno.test("splitDiscordMessage splits long messages on newline boundaries under 2000 chars", () => {
   const partA = `${"a".repeat(1500)}\n`;

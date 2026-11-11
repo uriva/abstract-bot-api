@@ -24,7 +24,7 @@ import {
   type MediaAttachment,
   type TaskHandler,
 } from "./api.ts";
-import { stripUndefined } from "./fbUtils.ts";
+import { ensureHebrewRtlLines, stripUndefined } from "./fbUtils.ts";
 import { extractImgTag, extractVideoTag } from "./telegram.ts";
 import { extractButtonsTag } from "./whatsapp.ts";
 
@@ -124,6 +124,77 @@ const discordAuthHeader = (botToken: string): Record<string, string> => ({
   Authorization: `Bot ${botToken}`,
 });
 
+const decodeBasicHtmlEntities = (text: string): string =>
+  text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&amp;/gi, "&");
+
+export const convertHtmlToDiscordFormat = (message: string): string =>
+  ensureHebrewRtlLines(
+    decodeBasicHtmlEntities(
+      message
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<code><pre>([\s\S]*?)<\/pre><\/code>/gi, "```$1```")
+        .replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/gi, "```$1```")
+        .replace(
+          /<code[^>]*>([\s\S]*?)<\/code>/gi,
+          (_, content: string) =>
+            content.includes("\n")
+              ? `\`\`\`${content}\`\`\``
+              : `\`${content}\``,
+        )
+        .replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, "```$1```")
+        .replace(/<\/(div|p)>/gi, "\n")
+        .replace(/<(div|p)[^>]*>/gi, "")
+        .replace(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/gi, "**$1**")
+        .replace(/<(?:i|em)[^>]*>([\s\S]*?)<\/(?:i|em)>/gi, "*$1*")
+        .replace(/<(?:u|ins)[^>]*>([\s\S]*?)<\/(?:u|ins)>/gi, "__$1__")
+        .replace(
+          /<(?:s|strike|del)[^>]*>([\s\S]*?)<\/(?:s|strike|del)>/gi,
+          "~~$1~~",
+        )
+        .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, "**$1**\n")
+        .replace(
+          /<ul[^>]*>([\s\S]*?)<\/ul>/gi,
+          (_m, content: string) =>
+            (content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) ?? [])
+              .map((item) => `- ${item.replace(/<\/?li[^>]*>/gi, "").trim()}`)
+              .join("\n"),
+        )
+        .replace(
+          /<ol[^>]*>([\s\S]*?)<\/ol>/gi,
+          (_m, content: string) =>
+            (content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) ?? [])
+              .map((item, idx) =>
+                `${idx + 1}. ${item.replace(/<\/?li[^>]*>/gi, "").trim()}`
+              )
+              .join("\n"),
+        )
+        .replace(
+          /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+          (_m, href: string, label: string) => {
+            const cleanLabel = label.trim();
+            return !cleanLabel || cleanLabel === href
+              ? href
+              : `[${cleanLabel}](${href})`;
+          },
+        )
+        .replace(
+          /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
+          (_m, content: string) =>
+            `\n> ${content.trim().replace(/\n/g, "\n> ")}\n`,
+        )
+        .replace(/<\/?[a-z][a-z0-9]*(?:\s[^>]*)?>/gi, "")
+        .trim(),
+    ),
+  );
+
 const splitIndexAtLimit = (text: string, limit: number): number => {
   const slice = text.slice(0, limit);
   const newlineIndex = slice.lastIndexOf("\n");
@@ -176,7 +247,7 @@ async (
   text: string,
   replyToMessageId?: string,
 ): Promise<string> => {
-  const chunks = splitDiscordMessage(text);
+  const chunks = splitDiscordMessage(convertHtmlToDiscordFormat(text));
   if (empty(chunks)) return "";
   return await chunks.reduce<Promise<string>>(
     async (prevPromise, chunk, index) => {
@@ -205,7 +276,7 @@ async (
   text: string,
   buttons: InteractiveButton[],
 ): Promise<string> => {
-  const chunks = splitDiscordMessage(text);
+  const chunks = splitDiscordMessage(convertHtmlToDiscordFormat(text));
   const leadingChunks = chunks.length > 1 ? chunks.slice(0, -1) : [];
   const finalText = chunks.length > 0
     ? chunks[chunks.length - 1]
@@ -237,7 +308,10 @@ async (
 export const editDiscordMessage =
   (botToken: string) =>
   async (channelId: string, messageId: string, text: string): Promise<void> => {
-    const trimmed = text.trim().slice(0, discordMaxMessageLength);
+    const trimmed = convertHtmlToDiscordFormat(text).slice(
+      0,
+      discordMaxMessageLength,
+    );
     if (!trimmed) return;
     const response = await fetch(
       `${discordApiBaseUrl}/channels/${channelId}/messages/${messageId}`,
