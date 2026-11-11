@@ -1,4 +1,5 @@
 export * from "./api.ts";
+export * from "./discord.ts";
 export * from "./fbMessenger.ts";
 export * from "./forwardEmail.ts";
 export * from "./greenApi.ts";
