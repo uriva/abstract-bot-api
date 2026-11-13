@@ -901,3 +901,67 @@ Deno.test("sendWhatsappContact and whatsappForBusinessInjectDepsAndRun deliver n
     globalThis.fetch = originalFetch;
   }
 });
+
+Deno.test("whatsappForBusinessInjectDepsAndRun normalizes incoming contacts messages into text and contact", async () => {
+  const events: ReturnType<typeof lastEvent>[] = [];
+  const makeContactsPayload = (contacts: unknown[]) =>
+    JSON.parse(JSON.stringify({
+      object: "whatsapp_business_account",
+      entry: [{
+        id: "entry-id",
+        changes: [{
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: {
+              phone_number_id: "from-number-id",
+              display_phone_number: "5555",
+            },
+            contacts: [{ profile: { name: "Sender" }, wa_id: "111" }],
+            messages: [{
+              from: "111",
+              id: "wamid-contacts-1",
+              timestamp: "1700000000",
+              type: "contacts",
+              contacts,
+            }],
+          },
+        }],
+      }],
+    }));
+
+  await whatsappForBusinessInjectDepsAndRun("token", () => {
+    events.push(lastEvent());
+    return Promise.resolve();
+  })(
+    makeContactsPayload([
+      {
+        name: { formatted_name: "Alex Cohen" },
+        phones: [{
+          phone: "050-000-0001",
+          wa_id: "972500000001",
+          type: "CELL",
+        }],
+      },
+      {
+        name: { first_name: "Dana", last_name: "Levi" },
+        phones: [{ wa_id: "972500000002" }],
+        emails: [{ email: "dana@example.com" }],
+      },
+    ]),
+  );
+
+  assertEquals(events.length, 1);
+  assertEquals(events[0], {
+    kind: "message",
+    id: "wamid-contacts-1",
+    time: 1700000000000,
+    text:
+      "Alex Cohen - +972500000001\nDana Levi - +972500000002, dana@example.com",
+    attachments: [],
+    contact: {
+      name: "Alex Cohen",
+      phone: "+972500000001",
+    },
+  });
+});

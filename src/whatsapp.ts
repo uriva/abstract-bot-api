@@ -56,6 +56,35 @@ import { verifyMetaSignature } from "./webhookAuth.ts";
 
 type MessageContext = { id?: string };
 
+type WebhookContactPhone = {
+  phone?: string;
+  wa_id?: string;
+  type?: string;
+};
+
+type WebhookContactEmail = {
+  email?: string;
+  type?: string;
+};
+
+type WebhookContact = {
+  name?: {
+    formatted_name?: string;
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
+    suffix?: string;
+    prefix?: string;
+  };
+  org?: {
+    company?: string;
+    department?: string;
+    title?: string;
+  };
+  phones?: WebhookContactPhone[];
+  emails?: WebhookContactEmail[];
+};
+
 // Custom types for message types not in the library
 type ContactsMessage = {
   from: string;
@@ -63,21 +92,7 @@ type ContactsMessage = {
   timestamp: string;
   type: "contacts";
   context?: MessageContext;
-  contacts: {
-    name: {
-      formatted_name: string;
-      first_name?: string;
-      last_name?: string;
-      middle_name?: string;
-      suffix?: string;
-      prefix?: string;
-    };
-    phones?: [{
-      phone: string;
-      wa_id?: string;
-      type?: "HOME" | "WORK";
-    }];
-  }[];
+  contacts: WebhookContact[];
 };
 
 type ReactionMessage = {
@@ -679,6 +694,51 @@ const referenceId = pipe(
   ([x]: string[]) => x || "",
 );
 
+const formatWaIdPhone = (waId: string) => {
+  const trimmed = waId.trim();
+  return trimmed ? `+${trimmed.replace(/^\+/, "")}` : "";
+};
+
+const resolveWebhookContactPhone = (
+  { phone, wa_id }: WebhookContactPhone,
+) => {
+  const trimmedPhone = phone?.trim() ?? "";
+  if (trimmedPhone.startsWith("+")) return trimmedPhone;
+  const waPhone = wa_id ? formatWaIdPhone(wa_id) : "";
+  return waPhone || trimmedPhone;
+};
+
+const resolveWebhookContactName = ({ name, org }: WebhookContact) =>
+  name?.formatted_name?.trim() ||
+  [
+    name?.prefix,
+    name?.first_name,
+    name?.middle_name,
+    name?.last_name,
+    name?.suffix,
+  ]
+    .map((part) => part?.trim() ?? "")
+    .filter(Boolean)
+    .join(" ") ||
+  org?.company?.trim() ||
+  "";
+
+const formatWebhookContact = (contact: WebhookContact) => {
+  const name = resolveWebhookContactName(contact);
+  const phones = [
+    ...new Set(
+      (contact.phones ?? []).map(resolveWebhookContactPhone).filter(Boolean),
+    ),
+  ];
+  const emails = [
+    ...new Set(
+      (contact.emails ?? []).map((e) => e.email?.trim() ?? "").filter(Boolean),
+    ),
+  ];
+  const details = [...phones, ...emails].join(", ");
+  return [name, details].filter(Boolean).join(" - ");
+};
+
 const messageText = pipe(
   innerMessages,
   map((msg: ExtendedWebhookMessage): string =>
@@ -702,6 +762,8 @@ const messageText = pipe(
       ? msg.reaction.emoji
       : msg.type === "location"
       ? `https://maps.google.com/maps?q=${msg.location.latitude},${msg.location.longitude}`
+      : msg.type === "contacts"
+      ? msg.contacts.map(formatWebhookContact).filter(Boolean).join("\n")
       : ""
   ),
   filter((x: string) => x),
@@ -826,11 +888,15 @@ const getContacts = (
     x.type === "contacts" ? x.contacts : []
   );
   if (empty(contacts)) return {};
-  const contact = contacts[0];
-  const phone = contact.phones?.[0]?.phone;
-  const name = contact.name.formatted_name;
-  if (!phone) return {};
-  return { contact: { phone, name } };
+  const firstWithPhone = contacts
+    .map((contact) => ({
+      name: resolveWebhookContactName(contact),
+      phone:
+        (contact.phones ?? []).map(resolveWebhookContactPhone).find(Boolean) ??
+          "",
+    }))
+    .find(({ phone }) => Boolean(phone));
+  return firstWithPhone ? { contact: firstWithPhone } : {};
 };
 
 const editedMessageId = (msg: WhatsappMessage): string | undefined => {
