@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import { identity, pipe } from "gamla";
 import {
   type ConversationEvent,
@@ -78,7 +79,7 @@ const slackApi = async <T>(
   method: string,
   body: Record<string, unknown>,
 ): Promise<T> => {
-  const response = await fetch(`https://slack.com/api/${method}`, {
+  const response = await httpFetch(`https://slack.com/api/${method}`, {
     method: "POST",
     headers: slackHeaders(botToken),
     body: JSON.stringify(stripUndefined(body)),

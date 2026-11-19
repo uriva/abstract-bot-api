@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import {
   type ConversationEvent,
   injectEditMessage,
@@ -91,7 +92,7 @@ export const sendGithubComment = async (
   issueNumber: number,
   body: string,
 ): Promise<{ id: number }> => {
-  const response = await fetch(
+  const response = await httpFetch(
     `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
     {
       method: "POST",
@@ -118,7 +119,7 @@ export const editGithubComment = async (
   commentId: number,
   body: string,
 ): Promise<{ id: number }> => {
-  const response = await fetch(
+  const response = await httpFetch(
     `https://api.github.com/repos/${owner}/${repo}/issues/comments/${commentId}`,
     {
       method: "PATCH",

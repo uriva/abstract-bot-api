@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import type {
   ApiResponse,
   Contact,
@@ -44,7 +45,7 @@ import { verifyTelegramSecretToken } from "./webhookAuth.ts";
 import { extractButtonsTag } from "./whatsapp.ts";
 
 const createUrlReadStream = async (url: string): Promise<Readable> => {
-  const response = await fetch(url);
+  const response = await httpFetch(url);
   return Readable.fromWeb(
     response.body as import("node:stream/web").ReadableStream,
   );
@@ -168,7 +169,7 @@ async (
   const body = new FormData();
   body.append("chat_id", String(userId));
   body.append("document", new Blob(await streamToChunks(stream)), filename);
-  await fetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
+  await httpFetch(`${tokenToTelegramURL(botToken)}sendDocument`, {
     method: "POST",
     body,
   });
@@ -194,7 +195,7 @@ async (
     filename,
   );
   if (caption) body.append("caption", caption);
-  await fetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
+  await httpFetch(`${tokenToTelegramURL(botToken)}sendPhoto`, {
     method: "POST",
     body,
   });
@@ -231,7 +232,7 @@ async (chat_id: number, text: string) => {
         2,
         500,
         (chat_id: number, text: string) =>
-          fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+          httpFetch(`${tokenToTelegramURL(token)}sendMessage`, {
             method: "POST",
             headers: { "Content-type": "application/json" },
             body: JSON.stringify({
@@ -275,7 +276,7 @@ export const sendTelegramButtons = (token: string) =>
       2,
       500,
       (chat_id: number, text: string) =>
-        fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+        httpFetch(`${tokenToTelegramURL(token)}sendMessage`, {
           method: "POST",
           headers: { "Content-type": "application/json" },
           body: JSON.stringify({
@@ -385,7 +386,7 @@ export const sendTelegramQuotedReply = (token: string) =>
   pipe(
     (normalized: string) =>
       normalized
-        ? fetch(`${tokenToTelegramURL(token)}sendMessage`, {
+        ? httpFetch(`${tokenToTelegramURL(token)}sendMessage`, {
           method: "POST",
           headers: { "Content-type": "application/json" },
           body: JSON.stringify({
@@ -649,7 +650,7 @@ export const setTelegramWebhook = (
   url: string,
   secretToken?: string,
 ): Promise<Response> =>
-  fetch(
+  httpFetch(
     `${tokenToTelegramURL(token)}setWebhook?url=${url}` +
       (secretToken ? `&secret_token=${encodeURIComponent(secretToken)}` : ""),
   );
@@ -704,7 +705,7 @@ const parseFetchErrorReason = (err: unknown): string => {
 const fileIdToUrlAndMime =
   (token: string) =>
   async (fileId: string): Promise<{ fileUri: string; mimeType: string }> => {
-    const response = await fetch(
+    const response = await httpFetch(
       `https://api.telegram.org/bot${token}/getFile?file_id=${
         encodeURIComponent(fileId)
       }`,
@@ -1123,18 +1124,21 @@ const injectDeps = (
     injectSpinner(makeSpinner(tgm, id, onSpinnerMessageId)),
     injectTyping(makeTyping(tgm, id)),
     injectReaction((msgId: string, emoji: string) =>
-      fetch(`https://api.telegram.org/bot${telegramToken}/setMessageReaction`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          chat_id: id,
-          message_id: Number(msgId),
-          reaction: [{ type: "emoji", emoji }],
-        }),
-      }).then(() => {}).catch(ignoreKick)
+      httpFetch(
+        `https://api.telegram.org/bot${telegramToken}/setMessageReaction`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id: id,
+            message_id: Number(msgId),
+            reaction: [{ type: "emoji", emoji }],
+          }),
+        },
+      ).then(() => {}).catch(ignoreKick)
     ),
     injectDeleteMessage((chatId: string, msgId: string) =>
-      fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+      httpFetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: chatId, message_id: Number(msgId) }),

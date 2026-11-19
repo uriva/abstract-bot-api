@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import type { Injector } from "@uri/inject";
 import { pipe } from "gamla";
 import { compile } from "html-to-text";
@@ -59,7 +60,7 @@ export const getThreadingHeaders = (
 };
 
 const sendEmail = (key: string) => (email: Email) =>
-  fetch("https://api.forwardemail.net/v1/emails", {
+  httpFetch("https://api.forwardemail.net/v1/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

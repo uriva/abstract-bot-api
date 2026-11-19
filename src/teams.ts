@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import { identity, pipe } from "gamla";
 import {
   type ConversationEvent,
@@ -64,7 +65,7 @@ const getTeamsAccessToken = async (
     client_secret: appPassword,
     scope: "https://api.botframework.com/.default",
   });
-  const response = await fetch(
+  const response = await httpFetch(
     "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token",
     {
       method: "POST",
@@ -91,7 +92,7 @@ const callTeamsConnector = async <T>(
   body?: Record<string, unknown>,
 ): Promise<T> => {
   const accessToken = await getTeamsAccessToken(appId, appPassword);
-  const response = await fetch(connectorUrl(serviceUrl, path), {
+  const response = await httpFetch(connectorUrl(serviceUrl, path), {
     method,
     headers: teamsHeaders(accessToken),
     ...(body ? { body: JSON.stringify(stripUndefined(body)) } : {}),

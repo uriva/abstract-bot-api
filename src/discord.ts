@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import { decodeBase64 } from "@std/encoding";
 import type { Injector } from "@uri/inject";
 import { empty, identity, nonempty, pipe } from "gamla";
@@ -224,7 +225,7 @@ const postDiscordChannelMessage = async (
   channelId: string,
   body: Record<string, unknown>,
 ): Promise<string> => {
-  const response = await fetch(
+  const response = await httpFetch(
     `${discordApiBaseUrl}/channels/${channelId}/messages`,
     {
       method: "POST",
@@ -313,7 +314,7 @@ export const editDiscordMessage =
       discordMaxMessageLength,
     );
     if (!trimmed) return;
-    const response = await fetch(
+    const response = await httpFetch(
       `${discordApiBaseUrl}/channels/${channelId}/messages/${messageId}`,
       {
         method: "PATCH",
@@ -331,7 +332,7 @@ export const editDiscordMessage =
 export const deleteDiscordMessage =
   (botToken: string) =>
   async (channelId: string, messageId: string): Promise<void> => {
-    const response = await fetch(
+    const response = await httpFetch(
       `${discordApiBaseUrl}/channels/${channelId}/messages/${messageId}`,
       {
         method: "DELETE",
@@ -358,7 +359,7 @@ async (
 ): Promise<void> => {
   const formatted = formatDiscordEmoji(emoji);
   if (!formatted) return;
-  const response = await fetch(
+  const response = await httpFetch(
     `${discordApiBaseUrl}/channels/${channelId}/messages/${messageId}/reactions/${formatted}/@me`,
     {
       method: "PUT",
@@ -374,7 +375,7 @@ async (
 
 export const sendDiscordTyping =
   (botToken: string) => async (channelId: string): Promise<void> => {
-    await fetch(`${discordApiBaseUrl}/channels/${channelId}/typing`, {
+    await httpFetch(`${discordApiBaseUrl}/channels/${channelId}/typing`, {
       method: "POST",
       headers: discordAuthHeader(botToken),
     });
@@ -382,11 +383,14 @@ export const sendDiscordTyping =
 
 export const openDiscordDm =
   (botToken: string) => async (recipientId: string): Promise<string> => {
-    const response = await fetch(`${discordApiBaseUrl}/users/@me/channels`, {
-      method: "POST",
-      headers: discordJsonHeaders(botToken),
-      body: JSON.stringify({ recipient_id: recipientId }),
-    });
+    const response = await httpFetch(
+      `${discordApiBaseUrl}/users/@me/channels`,
+      {
+        method: "POST",
+        headers: discordJsonHeaders(botToken),
+        body: JSON.stringify({ recipient_id: recipientId }),
+      },
+    );
     if (!response.ok) {
       throw new Error(
         `Discord open DM failed: ${await parseDiscordError(response)}`,
@@ -412,7 +416,7 @@ const uploadDiscordBlob = async (
       JSON.stringify({ content: caption.slice(0, discordMaxMessageLength) }),
     );
   }
-  const response = await fetch(
+  const response = await httpFetch(
     `${discordApiBaseUrl}/channels/${channelId}/messages`,
     {
       method: "POST",
@@ -438,7 +442,7 @@ const filenameFromUrl = (url: string): string => {
 export const sendDiscordFile =
   (botToken: string) =>
   async (channelId: string, url: string, caption?: string): Promise<string> => {
-    const fileRes = await fetch(url).catch(() => null);
+    const fileRes = await httpFetch(url).catch(() => null);
     if (!fileRes || !fileRes.ok) {
       return await sendDiscordMessage(botToken)(
         channelId,
@@ -493,7 +497,7 @@ export const ackDiscordInteraction = async (
   interactionId: string,
   interactionToken: string,
 ): Promise<void> => {
-  await fetch(
+  await httpFetch(
     `${discordApiBaseUrl}/interactions/${interactionId}/${interactionToken}/callback`,
     {
       method: "POST",

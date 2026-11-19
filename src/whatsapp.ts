@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import { decodeBase64 } from "@std/encoding";
 import type {
   WebhookMessage,
@@ -175,7 +176,7 @@ const postGraphMessage = conditionalRetry(
   fromNumberId: string,
   payload: Record<string, unknown>,
 ): Promise<Response> => {
-  const response = await fetch(graphMessagesUrl(fromNumberId), {
+  const response = await httpFetch(graphMessagesUrl(fromNumberId), {
     method: "POST",
     body: JSON.stringify(payload),
     headers: makeHeaders(accessToken),
@@ -518,7 +519,7 @@ const uploadImageData = async (
   form.append("messaging_product", "whatsapp");
   form.append("type", mimeType);
   form.append("file", blob, filename);
-  const response = await fetch(
+  const response = await httpFetch(
     `https://graph.facebook.com/${apiVersion}/${fromNumberId}/media`,
     {
       method: "POST",
@@ -817,7 +818,7 @@ const getMediaUrlAndMime = async (
   accessToken: string,
   id: string,
 ) => {
-  const metaResp = await fetch(
+  const metaResp = await httpFetch(
     `https://graph.facebook.com/${apiVersion}/${id}`,
     {
       method: "GET",
@@ -1028,7 +1029,7 @@ export const whatsappForBusinessInjectDepsAndRun =
         }).then(() => {})
       ),
       injectReaction((msgId: string, emoji: string) =>
-        fetch(
+        httpFetch(
           `https://graph.facebook.com/${apiVersion}/${
             toNumberId(msg)
           }/messages`,
@@ -1074,7 +1075,7 @@ export const whatsappBusinessHandler = (
 
 const sendWhatsappTypingIndicator =
   (accessToken: string, fromNumberId: string) => (messageId: string) =>
-    fetch(
+    httpFetch(
       `https://graph.facebook.com/${apiVersion}/${fromNumberId}/messages`,
       {
         method: "POST",

@@ -1,3 +1,4 @@
+import { httpFetch } from "./httpFetch.ts";
 import { pipe } from "gamla";
 import {
   type ImageReplyPayload,
@@ -38,7 +39,7 @@ export const sendMessengerMessage =
   (recipientId: string) =>
   (msg: string, messagingType: MessagingType = "RESPONSE"): Promise<string> =>
     pipe(convertToMessengerFormat, (text: string) =>
-      fetch(
+      httpFetch(
         `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
         {
           method: "POST",
@@ -89,7 +90,7 @@ export const sendMessengerImage =
       );
     }
 
-    const response = await fetch(
+    const response = await httpFetch(
       `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
       {
         method: "POST",
@@ -122,7 +123,7 @@ export const sendMessengerReply =
     messagingType: MessagingType = "RESPONSE",
   ): Promise<string> =>
     pipe(convertToMessengerFormat, (formattedText: string) =>
-      fetch(
+      httpFetch(
         `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
         {
           method: "POST",
@@ -149,7 +150,7 @@ export const sendMessengerAttachment =
     type: AttachmentType = "file",
     messagingType: MessagingType = "RESPONSE",
   ): Promise<string> =>
-    fetch(
+    httpFetch(
       `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
       {
         method: "POST",
@@ -174,7 +175,7 @@ export const sendMessengerTypingAction =
   (accessToken: string, pageId: string) =>
   (recipientId: string) =>
   (action: "typing_on" | "typing_off" | "mark_seen"): Promise<void> =>
-    fetch(
+    httpFetch(
       `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
       {
         method: "POST",
@@ -203,7 +204,7 @@ export const sendMessengerButtonTemplate =
     buttons: ButtonTemplate[],
     messagingType: MessagingType = "RESPONSE",
   ): Promise<string> =>
-    fetch(
+    httpFetch(
       `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
       {
         method: "POST",
@@ -243,7 +244,7 @@ export const sendMessengerQuickReplies =
     quickReplies: QuickReply[],
     messagingType: MessagingType = "RESPONSE",
   ): Promise<string> =>
-    fetch(
+    httpFetch(
       `https://graph.facebook.com/${apiVersion}/${pageId}/messages`,
       {
         method: "POST",
