@@ -435,12 +435,97 @@ Deno.test("extractButtonsTag generates id when omitted and handles <buttons> con
   });
 });
 
-Deno.test("extractButtonsTag truncates button title to 20 chars and returns null on no buttons", () => {
+Deno.test("extractButtonsTag decodes HTML entities, preserves full titles, and returns null on no buttons", () => {
   assertEquals(extractButtonsTag("Plain text without buttons"), null);
   const result = extractButtonsTag(
-    "Choose: <button>Very long button title that exceeds twenty chars</button>",
+    'Choose: <button id="go&amp;run">Approve &amp; redub</button> <button title="Terms &amp; Conditions" /> <button>Very long button title that exceeds twenty chars</button>',
   );
-  assertEquals(result?.buttons[0].title.length, 20);
+  assertEquals(result, {
+    remainingText: "Choose:",
+    buttons: [
+      { id: "go&run", title: "Approve & redub" },
+      { id: "btn_1_Terms & Conditions", title: "Terms & Conditions" },
+      {
+        id: "btn_2_Very long button title that exceeds twenty chars",
+        title: "Very long button title that exceeds twenty chars",
+      },
+    ],
+  });
+});
+
+Deno.test("sendWhatsappInteractiveButtons decodes HTML entities and truncates long labels cleanly at word boundaries", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: "interactive-btn-msg-id" }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappInteractiveButtons("token", "from-id")("111");
+    await send("Ready?", [
+      "Approve &amp; redub",
+      { id: "v", title: "Make it 9:16 vertical" },
+      { id: "r", title: "Render updated version" },
+    ]);
+    assertEquals(calls.length, 1);
+    const body = JSON.parse(calls[0].init?.body as string);
+    assertEquals(body.type, "interactive");
+    assertEquals(body.interactive.action.buttons, [
+      {
+        type: "reply",
+        reply: { id: "btn_0_Approve & redub", title: "Approve & redub" },
+      },
+      { type: "reply", reply: { id: "v", title: "Make it 9:16…" } },
+      { type: "reply", reply: { id: "r", title: "Render updated…" } },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("sendWhatsappInteractiveButtons falls back to full text when truncated titles would collide or buttons > 3", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  globalThis.fetch = (input, init) => {
+    calls.push({ input, init });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          messaging_product: "whatsapp",
+          contacts: [{ input: "123", wa_id: "123" }],
+          messages: [{ id: "fallback-msg-id" }],
+        }),
+        { status: 200 },
+      ),
+    );
+  };
+
+  try {
+    const send = sendWhatsappInteractiveButtons("token", "from-id")("111");
+    await send("Pick:", [
+      "Export video version one",
+      "Export video version two",
+    ]);
+    assertEquals(calls.length, 1);
+    const body = JSON.parse(calls[0].init?.body as string);
+    assertEquals(body.type, "text");
+    assertEquals(
+      body.text.body,
+      "Pick:\n\n[Export video version one]  [Export video version two]",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 Deno.test("formatButtonsFallback creates readable bracketed choices", () => {

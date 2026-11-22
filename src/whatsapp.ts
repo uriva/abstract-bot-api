@@ -40,12 +40,13 @@ import {
 } from "./api.ts";
 import {
   convertHtmlToFacebookFormat,
+  decodeHtmlEntities,
   ensureHebrewRtlLines,
   ensureRtlLine,
   makeHeaders,
   stripUndefined,
 } from "./fbUtils.ts";
-export { ensureHebrewRtlLines, ensureRtlLine };
+export { decodeHtmlEntities, ensureHebrewRtlLines, ensureRtlLine };
 import type {
   ConversationEvent,
   ImageReplyPayload,
@@ -192,6 +193,7 @@ const postGraphMessage = conditionalRetry(
 export const maxWhatsappTextLength = 4096;
 export const maxWhatsappInteractiveTextLength = 1024;
 export const maxWhatsappCaptionLength = 1024;
+export const maxWhatsappButtonTitleLength = 20;
 
 export const splitWhatsappText = (
   text: string,
@@ -274,8 +276,44 @@ export const sendWhatsappQuotedReply =
     return lastId;
   };
 
+const cleanHtmlText = (raw: string): string =>
+  decodeHtmlEntities(raw.replace(/<[^>]+>/g, ""))
+    .replace(/\s+/g, " ")
+    .trim();
+
+const sliceWithinCodeUnits = (text: string, maxCodeUnits: number): string =>
+  Array.from(text).reduce(
+    (state, ch) =>
+      state.done || state.out.length + ch.length > maxCodeUnits
+        ? { out: state.out, done: true }
+        : { out: state.out + ch, done: false },
+    { out: "", done: false },
+  ).out;
+
+export const fitWhatsappButtonTitle = (
+  raw: string,
+  maxLength = maxWhatsappButtonTitleLength,
+): string => {
+  const cleaned = cleanHtmlText(raw);
+  if (cleaned.length <= maxLength) return cleaned;
+  const budget = Math.max(1, maxLength - 1);
+  const sliced = sliceWithinCodeUnits(cleaned, budget);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const boundary = lastSpace >= Math.floor(budget / 2)
+    ? sliced.slice(0, lastSpace)
+    : sliced;
+  const trimmed = boundary.replace(/[\s,;:–—-]+$/u, "") || sliced.trim();
+  return `${trimmed}…`;
+};
+
 const buttonTagRegex =
-  /<button(?:\s+[^>]*\bid=["']([^"']+)["'])?[^>]*>([\s\S]*?)<\/button>|<button(?:\s+[^>]*\bid=["']([^"']+)["'])?[^>]*\btitle=["']([^"']+)["'][^>]*\/?>/gi;
+  /<button\b([^>]*?)\/>|<button\b([^>]*)>([\s\S]*?)<\/button>|<button\b([^>]*\btitle=["'][^"']+["'][^>]*)>/gi;
+
+const extractAttr = (attrs: string, name: string): string => {
+  const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i")
+    .exec(attrs);
+  return match?.[1] ?? match?.[2] ?? "";
+};
 
 export const extractButtonsTag = (
   text: string,
@@ -284,10 +322,14 @@ export const extractButtonsTag = (
   const matches = [...text.matchAll(buttonTagRegex)];
   if (empty(matches)) return null;
   const buttons: InteractiveButton[] = matches.map((match, index) => {
-    const id = match[1] || match[3];
-    const rawTitle = (match[2] !== undefined ? match[2] : match[4]) || "";
-    const title = truncate(20)(rawTitle.replace(/<[^>]+>/g, "").trim());
-    const cleanId = truncate(256)(id ? id.trim() : `btn_${index}_${title}`);
+    const attrs = match[1] ?? match[2] ?? match[4] ?? "";
+    const inner = match[3];
+    const rawId = extractAttr(attrs, "id");
+    const rawTitle = inner !== undefined ? inner : extractAttr(attrs, "title");
+    const title = cleanHtmlText(rawTitle);
+    const cleanId = truncate(256)(
+      rawId ? cleanHtmlText(rawId) : `btn_${index}_${title}`,
+    );
     return { id: cleanId, title };
   }).filter(({ title }) => Boolean(title));
   if (empty(buttons)) return null;
@@ -317,9 +359,9 @@ const parseContactTagMatch = (
 ): ContactPayload | null => {
   const nameMatch = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
   const phoneMatch = /\bphone\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
-  const rawName = (nameMatch?.[1] ?? nameMatch?.[2] ?? "").trim();
-  const rawPhone = (phoneMatch?.[1] ?? phoneMatch?.[2] ?? "").trim();
-  const innerTrimmed = (inner ?? "").replace(/<[^>]+>/g, "").trim();
+  const rawName = cleanHtmlText(nameMatch?.[1] ?? nameMatch?.[2] ?? "");
+  const rawPhone = cleanHtmlText(phoneMatch?.[1] ?? phoneMatch?.[2] ?? "");
+  const innerTrimmed = cleanHtmlText(inner ?? "");
   const name = rawName || (rawPhone ? innerTrimmed : "");
   const phone = rawPhone || (rawName ? innerTrimmed : "");
   return name && phone ? { name, phone } : null;
@@ -412,25 +454,47 @@ export const sendWhatsappInteractiveButtons =
     text: string,
     buttons: (string | InteractiveButton)[],
   ): Promise<string> => {
-    const normalizedButtons: InteractiveButton[] = buttons.map(
+    const decodedButtons: InteractiveButton[] = buttons.map(
       (b, idx) => {
         if (typeof b === "string") {
-          const title = truncate(20)(b.trim());
-          return { id: `btn_${idx}_${title}`, title };
+          const title = cleanHtmlText(b);
+          return { id: truncate(256)(`btn_${idx}_${title}`), title };
         }
-        const title = truncate(20)(b.title.trim());
-        const id = truncate(256)((b.id || `btn_${idx}_${title}`).trim());
+        const title = cleanHtmlText(b.title);
+        const id = truncate(256)(
+          b.id ? cleanHtmlText(b.id) : `btn_${idx}_${title}`,
+        );
         return { id, title };
       },
-    );
+    ).filter(({ title }) => Boolean(title));
 
-    if (empty(normalizedButtons)) {
+    if (empty(decodedButtons)) {
       return sendWhatsappMessage(accessToken, fromNumberId)(to)(text);
     }
 
-    if (normalizedButtons.length > 3) {
+    if (decodedButtons.length > 3) {
       return sendWhatsappMessage(accessToken, fromNumberId)(to)(
-        formatButtonsFallback(text, normalizedButtons),
+        formatButtonsFallback(text, decodedButtons),
+      );
+    }
+
+    const normalizedButtons: InteractiveButton[] = decodedButtons.map(
+      ({ id, title }, idx) => {
+        const fittedTitle = fitWhatsappButtonTitle(
+          title,
+          maxWhatsappButtonTitleLength,
+        );
+        return {
+          id: truncate(256)(id || `btn_${idx}_${fittedTitle}`),
+          title: fittedTitle,
+        };
+      },
+    );
+
+    const uniqueTitles = new Set(normalizedButtons.map(({ title }) => title));
+    if (uniqueTitles.size < normalizedButtons.length) {
+      return sendWhatsappMessage(accessToken, fromNumberId)(to)(
+        formatButtonsFallback(text, decodedButtons),
       );
     }
 

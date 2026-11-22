@@ -8,7 +8,7 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
     Object.entries(obj).filter(([, value]) => value !== undefined),
   ) as T;
 
-const decodeHtmlEntities = (text: string): string =>
+export const decodeHtmlEntities = (text: string): string =>
   text
     .replace(/&nbsp;/gi, " ")
     .replace(/&lt;/gi, "<")
@@ -22,13 +22,15 @@ const decodeHtmlEntities = (text: string): string =>
     .replace(/&mdash;/gi, "—")
     .replace(/&(?:lsquo|rsquo|#8216|#8217);/gi, "'")
     .replace(/&(?:ldquo|rdquo|#8220|#8221);/gi, '"')
-    .replace(/&#(\d+);/g, (_, dec) => {
+    .replace(/&#(\d+);/g, (match, dec) => {
       const code = Number(dec);
-      return code === 160 ? " " : String.fromCodePoint(code);
+      if (code === 160) return " ";
+      return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
     })
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
       const code = parseInt(hex, 16);
-      return code === 0xa0 ? " " : String.fromCodePoint(code);
+      if (code === 0xa0) return " ";
+      return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
     })
     .replace(/&amp;/gi, "&")
     .replace(/\u00A0/g, " ");
